@@ -144,23 +144,29 @@ def _onehot_feature_names(column_transformer) -> list[str]:
     return list(column_transformer.get_feature_names_out())
 
 
-def plot_logreg_coefficients(pipeline, save_as: str | None = None) -> plt.Figure:
-    """Coefficients and odds ratios for a fitted logreg pipeline."""
+def plot_logreg_coefficients(pipeline, top_n: int = 20, save_as: str | None = None) -> plt.Figure:
+    """Coefficients and odds ratios for a fitted logreg pipeline, largest
+    |coefficient| first (top of the chart) -- matplotlib's barh default
+    plots the first list item at the bottom, so the selected order is
+    reversed before plotting to get the more conventional top-to-bottom
+    "most important first" reading."""
     clf = pipeline.named_steps["classifier"]
     feature_names = _onehot_feature_names(pipeline.named_steps["preprocess"])
     coefs = clf.coef_[0]
     odds_ratios = np.exp(coefs)
-    order = np.argsort(np.abs(coefs))[::-1]
+    order = np.argsort(np.abs(coefs))[::-1][:top_n]
 
-    fig, ax = plt.subplots(figsize=(8, max(4, 0.3 * len(feature_names))))
+    fig, ax = plt.subplots(figsize=(8, max(4, 0.3 * len(order))))
     ax.barh(
-        [feature_names[i] for i in order],
-        [odds_ratios[i] for i in order],
-        color=["#C44E52" if coefs[i] > 0 else "#4C72B0" for i in order],
+        [feature_names[i] for i in order][::-1],
+        [odds_ratios[i] for i in order][::-1],
+        color=["#C44E52" if coefs[i] > 0 else "#4C72B0" for i in order][::-1],
     )
     ax.axvline(1.0, color="black", linewidth=0.8)
     ax.set_xlabel("Odds ratio (exp(coefficient))")
-    ax.set_title("Logistic Regression — odds ratios (>1 raises disease odds)")
+    ax.set_title(
+        f"Logistic Regression — odds ratios, top {len(order)} by |coefficient| (>1 raises disease odds)"
+    )
     fig.tight_layout()
     if save_as:
         savefig(fig, save_as)
