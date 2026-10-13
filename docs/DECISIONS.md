@@ -73,3 +73,55 @@ machine (pytest, ruff, jupyter, python-docx, etc., plus everything in
 `requirements.txt`). The Docker image (`docker/Dockerfile`, Phase 7) installs
 only `requirements.txt`, so dev/test/reporting tooling never ships in the
 serving image.
+
+### D1.4 — `scripts/setup_venv.sh` also installs the project itself (`pip install -e .`)
+`src/heart_mlops` must be importable as `heart_mlops` (for
+`python -m heart_mlops.data.download`, notebooks, and `pytest`'s
+`pythonpath = ["src"]` config). An editable install is simpler and more
+standard than manually exporting `PYTHONPATH` in every script.
+
+## Phase 2 — Data acquisition and EDA
+
+### D2.1 — UCI source URLs and fallback verified live, not assumed
+Before writing `src/heart_mlops/data/download.py`, fetched all four primary
+URLs and the dataset-id-45 fallback zip directly with curl: all returned
+HTTP 200, the four files inside the fallback zip are byte-identical (`diff`)
+to the four primary-URL downloads, and the combined row count is exactly 920
+(303 + 294 + 123 + 200), confirming the brief's "~920 rows" figure. Full
+detail and checksums in `data/README.md`.
+
+### D2.2 — Implausible-zero columns: `chol` and `trestbps`, confirmed by direct inspection
+Queried the raw data before deciding: `chol == 0` in **all 123 Switzerland
+rows** and **49 of 200 VA rows**; `trestbps == 0` in 1 VA row. Both are
+physiologically impossible in a living patient, so both are treated as
+missing in `clean.py`. No other numeric column had suspicious zeros
+(`thalach == 0`: none).
+
+### D2.3 — Exact-duplicate rows dropped (2 pairs, 918 rows retained)
+Found by `df.duplicated()` across all 14 raw columns + `site`: one duplicate
+pair in Hungarian, one in VA, each pair identical in every field including
+`oldpeak`'s decimal value -- consistent with the same record entered twice,
+not coincidence. Dropped the second occurrence of each pair.
+
+### D2.4 — Cleaned CSV keeps every NaN; no imputation at cleaning time
+`clean.py` only type-coerces, flags implausible zeros, de-duplicates and
+binarises the target -- it does not impute or drop any column. Imputation
+happens inside the sklearn pipeline (Phase 3), fit on training folds only,
+so validation/test rows (and, in leave-one-site-out, held-out sites) never
+leak into imputed values.
+
+### D2.5 — Proposed: drop `ca` as a model feature; keep `thal`/`slope` with missing-indicators; exclude `site` entirely
+Evidence (non-missing rate by site): `ca` is 98.7% present in Cleveland but
+only 1-4% present in the other three sites -- a missing-indicator on `ca`
+would mostly encode "is this a Cleveland row" rather than real clinical
+signal, i.e. site leakage. `thal` (17-90% missing outside Cleveland) and
+`slope` (35-65% missing outside Cleveland) have enough real coverage in 2-3
+sites to be worth keeping, with missing-indicator flags, while watching their
+importance scores and the leave-one-site-out results for leakage signs.
+`site` itself is proposed to be excluded as a model input entirely -- a
+model deployed on an unseen hospital has no value to give it anyway, and
+including it risks learning site-specific shortcuts rather than clinical
+relationships; it is used only for leave-one-site-out grouping and per-site
+reporting. **Status: proposed at the Phase 2 checkpoint, pending
+confirmation before being implemented in Phase 3's
+`features/preprocess.py`.**
