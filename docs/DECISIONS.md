@@ -130,3 +130,50 @@ used only for leave-one-site-out grouping and per-site reporting.
 `features/preprocess.py`. If `ca`'s feature importance or permutation
 importance in Phase 3 turns out to be dominated by site rather than signal,
 that will be reported explicitly rather than silently acted on.**
+
+## Phase 3 — Feature engineering and model development
+
+### D3.1 — Model-selection rule, fixed before any hold-out result is seen
+Per the brief's requirement to write the rule down before looking at
+hold-out results: **the model with the highest mean cross-validated
+ROC-AUC wins** (each model's own best `RandomizedSearchCV` hyperparameters,
+5-fold `StratifiedKFold`). Ties within 0.005 ROC-AUC are broken by
+preferring the simpler model, in order logreg > random_forest > hist_gb.
+The hold-out set is touched only *after* this rule has already picked a
+winner, and plays no role in choosing between models -- it only reports how
+the already-selected model performs on unseen data. Implemented verbatim
+in `src/heart_mlops/models/train.py::select_best_model`, written before
+`python -m heart_mlops.models.train` was ever run.
+
+Tuning optimises ROC-AUC specifically (not F1 or accuracy) because it is
+threshold-independent; the actual decision threshold is chosen separately
+afterwards from out-of-fold probabilities to hit the 0.95 recall target
+(D0.4), so optimising a threshold-dependent metric during tuning would
+conflate two different decisions.
+
+### D3.2 — Hold-out split stratified on (site, target) jointly, not target alone
+Switzerland has only 8 negative-class (`target=0`) rows in the entire
+dataset. Stratifying the train/hold-out split on `target` alone could, by
+chance, place a disproportionate share of those 8 rows into either split.
+Stratifying on the combined `site + "_" + target` key instead guarantees
+every site's class balance is preserved in both the training and hold-out
+sets. CV folds *within* training use `StratifiedKFold` on `target` alone
+(not the joint key) -- deliberately simpler, since 5-fold CV on strata as
+small as Switzerland's negatives (fewer than 8 rows once held out) risks a
+fold with too few members of a stratum. The joint-key risk is for the single
+hold-out split (acceptable, one split); the per-fold risk under 5-fold CV
+is a much tighter constraint, which is what the separate leave-one-site-out
+evaluation exists to probe properly instead.
+
+### D3.3 — HistGradientBoostingClassifier receives no imputation at all
+Unlike logreg/random_forest (median/constant-imputed via a
+`ColumnTransformer`, see `src/heart_mlops/features/preprocess.py`),
+`hist_gb`'s pipeline has no preprocessing step -- the raw DataFrame (NaNs
+included) is passed straight to `HistGradientBoostingClassifier`, with
+`categorical_features=CATEGORICAL_FEATURES` declared so it treats those
+columns' integer codes as categories (and missingness as its own category)
+rather than assuming a linear numeric relationship. This is the entire
+reason it was chosen as the third model ("handles NaN natively" in the
+brief) -- running it through the same imputer as the other two models would
+defeat the point of including it as a genuinely different approach to the
+missingness problem, not just a third algorithm.

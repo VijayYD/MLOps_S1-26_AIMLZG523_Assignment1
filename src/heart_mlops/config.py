@@ -49,3 +49,15 @@ RAW_FILE_SHA256 = {
     "switzerland": "834a405ccf5b66ab4056bb77794adc8df0b7125186454c0a1d002d33c6c3b314",
     "va": "e7c93d8d0d2acdadfa4c5e8de768e2191e7f618b952e29623f1f0d5949ff6b8f",
 }
+
+# --- Modelling feature lists (Phase 3) -------------------------------------
+# Confirmed with the project owner (docs/DECISIONS.md D2.5): `site` is
+# excluded as a model feature (grouping-only, for leave-one-site-out and
+# per-site reporting); `ca`, `thal`, `slope` are kept despite being sparse
+# outside Cleveland, with missing-indicator / "missing" one-hot handling.
+NUMERIC_FEATURES = ["age", "trestbps", "chol", "thalach", "oldpeak"]
+CATEGORICAL_FEATURES = ["sex", "cp", "fbs", "restecg", "exang", "slope", "ca", "thal"]
+MODEL_FEATURE_COLUMNS = NUMERIC_FEATURES + CATEGORICAL_FEATURES
+
+CV_FOLDS = 5
+HOLDOUT_TEST_SIZE = 0.2
