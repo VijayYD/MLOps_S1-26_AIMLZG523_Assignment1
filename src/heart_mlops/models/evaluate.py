@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -92,7 +93,9 @@ def plot_pr_curves(curves: dict[str, tuple], save_as: str | None = None) -> plt.
     return fig
 
 
-def plot_confusion_matrix_at_threshold(y_true, y_proba, threshold: float, save_as: str | None = None) -> plt.Figure:
+def plot_confusion_matrix_at_threshold(
+    y_true, y_proba, threshold: float, save_as: str | None = None
+) -> plt.Figure:
     y_pred = (y_proba >= threshold).astype(int)
     fig, ax = plt.subplots(figsize=(5, 5))
     ConfusionMatrixDisplay.from_predictions(
@@ -105,15 +108,25 @@ def plot_confusion_matrix_at_threshold(y_true, y_proba, threshold: float, save_a
     return fig
 
 
-def plot_calibration_curve(curves: dict[str, tuple], n_bins: int = 10, save_as: str | None = None) -> plt.Figure:
+def plot_calibration_curve(
+    curves: dict[str, tuple], n_bins: int = 10, save_as: str | None = None
+) -> plt.Figure:
     """curves: {label: (y_true, y_proba)}"""
     fig, ax = plt.subplots(figsize=(6, 6))
     for label, (y_true, y_proba) in curves.items():
         bin_edges = np.linspace(0, 1, n_bins + 1)
         bin_ids = np.clip(np.digitize(y_proba, bin_edges) - 1, 0, n_bins - 1)
-        mean_pred = np.array([y_proba[bin_ids == b].mean() if (bin_ids == b).any() else np.nan for b in range(n_bins)])
+        mean_pred = np.array(
+            [
+                y_proba[bin_ids == b].mean() if (bin_ids == b).any() else np.nan
+                for b in range(n_bins)
+            ]
+        )
         frac_pos = np.array(
-            [np.asarray(y_true)[bin_ids == b].mean() if (bin_ids == b).any() else np.nan for b in range(n_bins)]
+            [
+                np.asarray(y_true)[bin_ids == b].mean() if (bin_ids == b).any() else np.nan
+                for b in range(n_bins)
+            ]
         )
         ax.plot(mean_pred, frac_pos, marker="o", label=label)
     ax.plot([0, 1], [0, 1], linestyle="--", color="grey", label="Perfectly calibrated")
@@ -163,20 +176,35 @@ def plot_rf_importance(pipeline, X_holdout, y_holdout, save_as: str | None = Non
     feature_names = _onehot_feature_names(pipeline.named_steps["preprocess"])
     impurity = clf.feature_importances_
 
-    perm = permutation_importance(
-        pipeline, X_holdout, y_holdout, n_repeats=20, random_state=SEED, scoring="roc_auc", n_jobs=-1
-    )
+    # Threading backend: see the comment in models/train.py::main for why
+    # (avoids noisy-but-harmless multiprocessing teardown logs on macOS/py3.13
+    # for a job this small; not a workaround for an actual failure).
+    with joblib.parallel_backend("threading"):
+        perm = permutation_importance(
+            pipeline,
+            X_holdout,
+            y_holdout,
+            n_repeats=20,
+            random_state=SEED,
+            scoring="roc_auc",
+            n_jobs=-1,
+        )
 
     fig, axes = plt.subplots(1, 2, figsize=(14, max(4, 0.3 * len(feature_names))))
 
     order_imp = np.argsort(impurity)[::-1][:20]
-    axes[0].barh([feature_names[i] for i in order_imp][::-1], impurity[order_imp][::-1], color="#55A868")
+    axes[0].barh(
+        [feature_names[i] for i in order_imp][::-1], impurity[order_imp][::-1], color="#55A868"
+    )
     axes[0].set_title("Impurity-based importance (top 20)")
 
     perm_mean = perm.importances_mean
     order_perm = np.argsort(perm_mean)[::-1][:20]
     axes[1].barh(
-        [MODEL_FEATURE_COLUMNS[i] if i < len(MODEL_FEATURE_COLUMNS) else str(i) for i in order_perm][::-1],
+        [
+            MODEL_FEATURE_COLUMNS[i] if i < len(MODEL_FEATURE_COLUMNS) else str(i)
+            for i in order_perm
+        ][::-1],
         perm_mean[order_perm][::-1],
         xerr=perm.importances_std[order_perm][::-1],
         color="#4C72B0",
@@ -199,28 +227,36 @@ class LosoResult:
     metrics: dict
 
 
-def leave_one_site_out(build_pipeline_fn, best_params: dict, df: pd.DataFrame, threshold: float) -> pd.DataFrame:
+def leave_one_site_out(
+    build_pipeline_fn, best_params: dict, df: pd.DataFrame, threshold: float
+) -> pd.DataFrame:
     """Train on 3 of the 4 sites, evaluate on the held-out 4th, for each
     site in turn. Uses the single globally-selected threshold (not
     re-tuned per fold) since the deployed model will use one fixed
     threshold regardless of which hospital a request comes from."""
     rows = []
-    for held_out in SITES:
-        train_df = df[df["site"] != held_out]
-        test_df = df[df["site"] == held_out]
+    with joblib.parallel_backend("threading"):
+        for held_out in SITES:
+            train_df = df[df["site"] != held_out]
+            test_df = df[df["site"] == held_out]
 
-        X_train = train_df[MODEL_FEATURE_COLUMNS]
-        y_train = train_df["target"]
-        X_test = test_df[MODEL_FEATURE_COLUMNS]
-        y_test = test_df["target"]
+            X_train = train_df[MODEL_FEATURE_COLUMNS]
+            y_train = train_df["target"]
+            X_test = test_df[MODEL_FEATURE_COLUMNS]
+            y_test = test_df["target"]
 
-        pipeline = clone(build_pipeline_fn())
-        pipeline.set_params(**best_params)
-        pipeline.fit(X_train, y_train)
-        y_proba = pipeline.predict_proba(X_test)[:, 1]
+            pipeline = clone(build_pipeline_fn())
+            pipeline.set_params(**best_params)
+            pipeline.fit(X_train, y_train)
+            y_proba = pipeline.predict_proba(X_test)[:, 1]
 
-        metrics = compute_metrics(y_test, y_proba, threshold)
-        rows.append(
-            {"held_out_site": held_out, "n_train": len(train_df), "n_test": len(test_df), **metrics}
-        )
+            metrics = compute_metrics(y_test, y_proba, threshold)
+            rows.append(
+                {
+                    "held_out_site": held_out,
+                    "n_train": len(train_df),
+                    "n_test": len(test_df),
+                    **metrics,
+                }
+            )
     return pd.DataFrame(rows)
