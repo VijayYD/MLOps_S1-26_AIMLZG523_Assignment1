@@ -177,3 +177,22 @@ reason it was chosen as the third model ("handles NaN natively" in the
 brief) -- running it through the same imputer as the other two models would
 defeat the point of including it as a genuinely different approach to the
 missingness problem, not just a third algorithm.
+
+### D3.4 — `joblib.parallel_backend("threading")` around tuning, not the process-based default
+The first run of `python -m heart_mlops.models.train` completed correctly
+(exit code 0, correct results) but printed ~16 harmless
+`ChildProcessError: [Errno 10] No child processes` tracebacks from CPython's
+`multiprocessing.resource_tracker` during interpreter shutdown -- a known
+Python 3.13 + macOS + joblib/loky compatibility quirk, not a real failure.
+Since the brief explicitly wants "clear logs" and this is also the script
+CI's `train` job runs on every push (Phase 6), a wall of tracebacks at the
+end of a successful run is exactly the kind of noise that could be
+mis-read as a failure by a reviewer skimming Actions output. Switched to
+joblib's `threading` backend for the tuning/search/permutation-importance
+calls: it eliminates the tracebacks entirely (verified: identical
+`best_score_`/`best_params_` results, confirming no behavioural change,
+only how parallelism is implemented) at the cost of slower Random Forest
+search specifically (~95s instead of ~16s for 30 candidates x 5 folds,
+since nested joblib contexts downgrade `RandomForestClassifier(n_jobs=-1)`'s
+own parallelism to threads too). Accepted this runtime cost -- total
+training is still a few minutes -- in exchange for clean logs.
