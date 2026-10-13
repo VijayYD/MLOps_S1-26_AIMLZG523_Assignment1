@@ -1,0 +1,33 @@
+[project]
+name = "heart-mlops"
+version = "0.1.0"
+description = "End-to-end MLOps pipeline for heart disease risk prediction (4-site UCI dataset)."
+requires-python = ">=3.12,<3.14"
+readme = "README.md"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "test"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["heart_mlops"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+pythonpath = ["src"]
+addopts = "--cov=heart_mlops --cov-report=term-missing --cov-report=xml --cov-report=html"
+
+[tool.coverage.run]
+source = ["src/heart_mlops"]
