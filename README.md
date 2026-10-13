@@ -1,0 +1,89 @@
+# Heart Disease Risk Prediction — End-to-End MLOps
+
+An end-to-end MLOps pipeline for predicting the presence of heart disease from
+patient health attributes: data acquisition and EDA, feature engineering and
+model development, experiment tracking, packaging, CI/CD, containerisation,
+Kubernetes deployment, and monitoring.
+
+Dataset: the combined four-site UCI Heart Disease dataset (Cleveland,
+Hungarian, Switzerland, VA Long Beach; ~920 rows), which brings real
+site-dependent missingness and distribution shift rather than the smaller,
+cleaner 303-row Cleveland-only subset usually seen. See
+[`data/README.md`](data/README.md) for provenance and the column dictionary
+(populated in Phase 2).
+
+**Status:** repository scaffold and environment setup only. Data, modelling,
+serving, deployment and monitoring sections below will be filled in as the
+corresponding phases land.
+
+## Repository map
+
+```
+src/heart_mlops/   Python package: data, features, models, api
+notebooks/         EDA / modelling / inference-demo notebooks
+scripts/           check_env, setup_venv, and (later) download_data, train,
+                   build_image, k8s_deploy, etc. -- bash equivalents of make targets
+test/              pytest unit + API tests
+docker/            Dockerfile + docker-compose.yml
+k8s/               Kustomize manifests (base / monitoring / overlays/minikube)
+monitoring/        Prometheus + Grafana config (provisioned, not click-ops)
+models/            Trained model artefact + metadata + model card
+reports/           Generated figures + the DOCX report
+docs/              Design decisions, architecture, video script
+```
+
+## Prerequisites
+
+- Python **3.13.x** on macOS (dev) / **3.12.x** on Linux (BITS Prayogshala lab)
+- git, curl, make
+- Docker (for Phases 7+)
+- minikube **v1.35.0** and kubectl (for Phases 7+; a missing `kubectl` falls
+  back to `minikube kubectl --` everywhere)
+
+Run the preflight check first, on either OS:
+
+```bash
+bash scripts/check_env.sh
+```
+
+It reports versions of every tool above, CPU/RAM, and whether ports
+8000 (API) / 5001 (MLflow UI) / 9090 (Prometheus) / 3000 (Grafana) are free.
+It exits non-zero only if a hard requirement (python3, pip, git, curl) is
+missing; everything else is reported as a warning so you can decide how to
+proceed. Port 5000 is deliberately avoided for MLflow because it's used by
+AirPlay Receiver on macOS.
+
+## Quick start
+
+```bash
+bash scripts/check_env.sh      # or: make check-env
+bash scripts/setup_venv.sh     # or: make venv
+source .venv/bin/activate
+```
+
+`scripts/setup_venv.sh` picks the Python version pinned for your OS (3.13.x on
+macOS, 3.12.x on Linux) rather than trusting whatever `python3` happens to
+resolve to on `$PATH` — see [`docs/DECISIONS.md`](docs/DECISIONS.md#d03--scriptssetup_venvsh-does-not-blindly-trust-python3-on-path)
+for why. It then installs `requirements-dev.txt` (a superset of
+`requirements.txt`) and prints `pip list`.
+
+## Design decisions
+
+Every non-obvious choice in this project (dataset, missing-value handling,
+Python/minikube version pinning, threshold selection, etc.) is logged with its
+rationale and alternatives considered in [`docs/DECISIONS.md`](docs/DECISIONS.md).
+
+## Roadmap
+
+| Phase | Status |
+|---|---|
+| 0 — Preflight | Done |
+| 1 — Repository scaffold | Done |
+| 2 — Data acquisition & EDA | Not started |
+| 3 — Feature engineering & modelling | Not started |
+| 4 — Experiment tracking (MLflow) | Not started |
+| 5 — Packaging & reproducibility | Not started |
+| 6 — CI/CD & automated testing | Not started |
+| 7 — Containerisation, Kubernetes, monitoring | Not started |
+| 8 — Lab-parity verification | Not started |
+| 9 — Documentation & reporting | Not started |
