@@ -110,18 +110,23 @@ happens inside the sklearn pipeline (Phase 3), fit on training folds only,
 so validation/test rows (and, in leave-one-site-out, held-out sites) never
 leak into imputed values.
 
-### D2.5 — Proposed: drop `ca` as a model feature; keep `thal`/`slope` with missing-indicators; exclude `site` entirely
+### D2.5 — Confirmed: keep `ca`, `thal` and `slope` with missing-indicators; exclude `site` entirely
 Evidence (non-missing rate by site): `ca` is 98.7% present in Cleveland but
 only 1-4% present in the other three sites -- a missing-indicator on `ca`
-would mostly encode "is this a Cleveland row" rather than real clinical
-signal, i.e. site leakage. `thal` (17-90% missing outside Cleveland) and
-`slope` (35-65% missing outside Cleveland) have enough real coverage in 2-3
-sites to be worth keeping, with missing-indicator flags, while watching their
-importance scores and the leave-one-site-out results for leakage signs.
-`site` itself is proposed to be excluded as a model input entirely -- a
-model deployed on an unseen hospital has no value to give it anyway, and
-including it risks learning site-specific shortcuts rather than clinical
-relationships; it is used only for leave-one-site-out grouping and per-site
-reporting. **Status: proposed at the Phase 2 checkpoint, pending
-confirmation before being implemented in Phase 3's
-`features/preprocess.py`.**
+mostly encodes "is this a Cleveland row" rather than real clinical signal,
+i.e. a site-leakage risk. This was flagged and the project owner chose to
+**keep `ca`** anyway (with a missing-indicator flag) rather than drop it,
+specifically so the leave-one-site-out evaluation (Phase 3) can show
+empirically whether it actually hurts cross-site generalisation, instead of
+assuming it will. `thal` (17-90% missing outside Cleveland) and `slope`
+(35-65% missing outside Cleveland) are confirmed kept with missing-indicator
+flags for the same reason, with their importance scores and the
+leave-one-site-out results watched for leakage signs. `site` itself is
+confirmed **excluded** as a model input entirely -- a model deployed on an
+unseen hospital has no value to give it anyway, and including it risks
+learning site-specific shortcuts rather than clinical relationships; it is
+used only for leave-one-site-out grouping and per-site reporting.
+**Status: confirmed with the project owner; to be implemented in Phase 3's
+`features/preprocess.py`. If `ca`'s feature importance or permutation
+importance in Phase 3 turns out to be dominated by site rather than signal,
+that will be reported explicitly rather than silently acted on.**
