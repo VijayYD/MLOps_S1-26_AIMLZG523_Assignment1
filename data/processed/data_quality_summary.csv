@@ -1,0 +1,6 @@
+site,n_rows,missing_pct_age,missing_pct_sex,missing_pct_cp,missing_pct_trestbps,missing_pct_chol,missing_pct_fbs,missing_pct_restecg,missing_pct_thalach,missing_pct_exang,missing_pct_oldpeak,missing_pct_slope,missing_pct_ca,missing_pct_thal,target_positive_pct
+cleveland,303,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.3,0.7,45.9
+hungarian,293,0.0,0.0,0.0,0.3,7.5,2.7,0.3,0.3,0.3,0.0,64.5,99.0,90.4,36.2
+switzerland,123,0.0,0.0,0.0,1.6,100.0,61.0,0.8,0.8,0.8,4.9,13.8,95.9,42.3,93.5
+va,199,0.0,0.0,0.0,28.6,28.1,3.5,0.0,26.6,26.6,28.1,50.8,99.0,82.9,74.4
+ALL,918,0.0,0.0,0.0,6.5,21.9,9.8,0.2,6.0,6.0,6.8,33.4,66.3,52.7,55.3
