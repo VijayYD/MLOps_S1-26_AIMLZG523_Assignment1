@@ -7,6 +7,7 @@ pandas==2.2.3
 scipy==1.14.1
 scikit-learn==1.5.2
 mlflow==2.18.0
+sqlalchemy==2.0.36
 pyarrow==18.1.0
 fastapi==0.115.5
 uvicorn[standard]==0.32.0

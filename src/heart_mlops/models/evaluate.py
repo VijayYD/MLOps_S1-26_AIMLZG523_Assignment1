@@ -21,6 +21,7 @@ from sklearn.metrics import (
     RocCurveDisplay,
     average_precision_score,
     brier_score_loss,
+    classification_report,
     f1_score,
     precision_recall_curve,
     precision_score,
@@ -64,6 +65,13 @@ def compute_metrics(y_true, y_proba, threshold: float) -> dict:
         "brier": float(brier_score_loss(y_true, y_proba)),
         "threshold": float(threshold),
     }
+
+
+def classification_report_text(y_true, y_proba, threshold: float) -> str:
+    y_pred = (y_proba >= threshold).astype(int)
+    return classification_report(
+        y_true, y_pred, target_names=["No disease", "Disease"], zero_division=0
+    )
 
 
 # --- Plots -------------------------------------------------------------

@@ -61,3 +61,13 @@ MODEL_FEATURE_COLUMNS = NUMERIC_FEATURES + CATEGORICAL_FEATURES
 
 CV_FOLDS = 5
 HOLDOUT_TEST_SIZE = 0.2
+
+# --- Experiment tracking (Phase 4) -----------------------------------------
+# Both gitignored; local-only by default. MLFLOW_TRACKING_URI overrides the
+# backend store (e.g. to point at a remote server) without touching code.
+MLFLOW_DB_PATH = PROJECT_ROOT / "mlflow.db"
+MLFLOW_ARTIFACT_ROOT = PROJECT_ROOT / "mlartifacts"
+MLFLOW_TRACKING_URI_DEFAULT = f"sqlite:///{MLFLOW_DB_PATH}"
+MLFLOW_EXPERIMENT_NAME = "heart-disease-4site"
+MLFLOW_REGISTERED_MODEL_NAME = "heart_disease_classifier"
+MLFLOW_CHAMPION_ALIAS = "champion"
