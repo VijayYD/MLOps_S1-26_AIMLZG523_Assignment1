@@ -14,7 +14,8 @@ cleaner 303-row Cleveland-only subset usually seen. See
 
 **Status:** data acquisition/EDA, modelling, experiment tracking, packaging,
 CI/CD, containerisation, Kubernetes deployment and monitoring are all done.
-Lab-parity verification and the final report/documentation pass are next.
+Lab-parity verification is done too. The final report/documentation pass
+is next.
 
 ## Repository map
 
@@ -215,6 +216,20 @@ flaky UCI download never blocks the container check; `docs/DECISIONS.md`
 D7.8). Pushing the built image to GHCR is not wired up — gated on asking
 first, per the brief.
 
+## Running this at the BITS Prayogshala lab
+
+See [`LAB_RUNBOOK.md`](LAB_RUNBOOK.md) for copy-paste steps on the lab
+machine — clone through teardown, no `sudo` anywhere, with a troubleshooting
+section (resource limits, the `ingress` addon, the `minikube kubectl --`
+fallback, port conflicts, proxy settings). Verified by actually doing a
+fresh clone and following it literally, step by step, before trusting it
+(`docs/DECISIONS.md` D8.2) — not just written and assumed correct.
+
+```bash
+make lab-parity   # re-proves the exact pins in requirements*.txt install and
+                  # run correctly inside a fresh python:3.12.9-slim container
+```
+
 ## Design decisions
 
 Every non-obvious choice in this project (dataset, missing-value handling,
@@ -233,5 +248,5 @@ rationale and alternatives considered in [`docs/DECISIONS.md`](docs/DECISIONS.md
 | 5 — Packaging & reproducibility | Done |
 | 6 — CI/CD & automated testing | Done |
 | 7 — Containerisation, Kubernetes, monitoring | Done |
-| 8 — Lab-parity verification | Not started |
+| 8 — Lab-parity verification | Done |
 | 9 — Documentation & reporting | Not started |
