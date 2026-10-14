@@ -27,7 +27,10 @@ known-first-party = ["heart_mlops"]
 [tool.pytest.ini_options]
 testpaths = ["test"]
 pythonpath = ["src"]
-addopts = "--cov=heart_mlops --cov-report=term-missing --cov-report=xml --cov-report=html"
+addopts = "--cov=heart_mlops --cov-report=term-missing --cov-report=xml --cov-report=html --junitxml=junit.xml"
 
 [tool.coverage.run]
 source = ["src/heart_mlops"]
+
+[tool.coverage.report]
+fail_under = 90
