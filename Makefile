@@ -1,6 +1,6 @@
 .PHONY: check-env venv lint test data train mlflow-ui \
         build-image docker-smoke compose-up compose-down \
-        k8s-deploy k8s-verify k8s-teardown load-test
+        k8s-deploy k8s-verify k8s-teardown load-test lab-parity
 
 check-env:
 	bash scripts/check_env.sh
@@ -48,3 +48,6 @@ k8s-teardown:
 
 load-test:
 	bash scripts/load_test.sh
+
+lab-parity:
+	bash scripts/lab_parity_check.sh
