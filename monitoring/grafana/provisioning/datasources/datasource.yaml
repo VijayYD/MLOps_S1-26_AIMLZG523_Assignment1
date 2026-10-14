@@ -1,0 +1,12 @@
+# Shared by docker-compose and Kubernetes (via a configMapGenerator in
+# k8s/monitoring/kustomization.yaml) -- "prometheus:9090" resolves in both:
+# the compose service name, and the k8s Service name within the same
+# namespace.
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

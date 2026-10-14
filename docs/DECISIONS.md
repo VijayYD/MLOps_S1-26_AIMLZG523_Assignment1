@@ -360,3 +360,115 @@ now with `lint`, `test` (matrix: Python 3.12.9 and 3.13.5, mirroring the
 Mac and lab exactly), and `train` jobs only. Phase 7 extends this same
 file with the `docker` job once there is something real for it to build
 and test.
+
+## Phase 7 — Containerisation, Kubernetes, monitoring
+
+### D7.1 — POST /predict/batch implemented (confirmed with the project owner)
+The brief gated this behind asking first; confirmed. Shares the single
+`/predict` endpoint's row-building and response-shaping logic
+(`_features_to_row`, `_risk_to_response` helpers in `main.py`) rather than
+duplicating it, and runs one vectorised `predict_proba` call across the
+whole batch instead of looping model calls one row at a time. Capped at
+100 records per request (`BatchPredictRequest.records`, `max_length=100`)
+so a single request can't become an unbounded inference job.
+
+### D7.2 — HPA on CPU implemented (confirmed with the project owner)
+The brief gated this behind asking first; confirmed. `k8s/base/hpa.yaml`
+targets the `heart-api` Deployment, 2-5 replicas, 70% average CPU
+utilisation, requiring the `metrics-server` addon (enabled by
+`scripts/k8s_deploy.sh`).
+
+### D7.3 — ConfigMap's threshold/log-level values are wired into the app, not decorative
+The brief asks for a ConfigMap carrying "threshold, log level" -- rather
+than add env vars the app ignores, `main.py` actually reads `LOG_LEVEL`
+(passed to `configure_logging`) and an optional `PREDICTION_THRESHOLD`
+that overrides the packaged model's threshold at startup when set (the
+packaged `model_metadata.json` value remains the default). Verified both
+with a test that sets `PREDICTION_THRESHOLD` and checks `/model-info`
+reflects it. This lets ops adjust the operating threshold via
+`kubectl edit configmap` + a rollout restart, without retraining or
+rebuilding the image.
+
+### D7.4 — Kustomize's security sandbox blocks sharing Grafana config files across `k8s/` and `monitoring/`
+Tried to have `k8s/monitoring/kustomization.yaml` read the *same*
+provisioning files docker-compose mounts directly
+(`monitoring/grafana/provisioning/...`, `monitoring/grafana/dashboards/heart_api.json`)
+via a `configMapGenerator`'s `files:` entries with a `../../monitoring/...`
+relative path -- one source of truth for both. Kustomize's `kustomize
+build`/`kubectl apply -k` refused: its security sandbox restricts file
+references to inside or below the kustomization's own root directory,
+and a relative path that escapes it (even one that stays inside the
+repo) is rejected outright, with no in-file way to disable this (only an
+external `--load-restrictor` CLI flag, which `kubectl apply -k` doesn't
+expose and which scripts would have to remember to pass every time).
+Resolved by inlining the same (small, stable) content directly as plain
+`ConfigMap` manifests under `k8s/monitoring/` instead -- accepting minor
+duplication between `monitoring/grafana/provisioning/*` (used by
+docker-compose) and `k8s/monitoring/grafana-*-configmap.yaml` (used by
+`kubectl apply -k`) in exchange for `kubectl apply -k` actually working
+without extra flags. Each k8s file's header comment points back at its
+compose counterpart so a future edit isn't made in only one place by
+accident.
+
+### D7.5 — Prometheus scrape config differs between docker-compose and Kubernetes (not shared)
+Unlike the Grafana provisioning files, `monitoring/prometheus.yml`
+(docker-compose: a static target, `api:8000`) and
+`k8s/monitoring/prometheus-configmap.yaml` (Kubernetes:
+`kubernetes_sd_configs` pod discovery, since pod IPs are dynamic and a
+static target can't work) are genuinely different mechanisms, not just
+differently-formatted versions of the same config -- there is nothing to
+deduplicate here, unlike D7.4's Grafana files.
+
+### D7.6 — Verified end-to-end before moving on, at every layer
+Built and ran the actual Docker image (not just reviewed the Dockerfile):
+confirmed it runs as the non-root `appuser`, the `HEALTHCHECK` reports
+healthy, and OCI labels carry the real git SHA. Ran `scripts/run_container_smoke.sh`
+for real against all four `test/sample_requests/*.json` files, each
+checked against its expected status code (200 for `valid_*`, 422 for
+`invalid_*`) -- caught a real bash bug while writing it: variable
+assignments inside a `{ ... } | tee` pipeline run in a subshell and never
+reach the parent shell, so the smoke test's pass/fail signal was silently
+lost; fixed by having the subshell `exit` with the right code and reading
+it back via `${PIPESTATUS[0]}` (with an `|| true` guard, since `set -e` +
+`pipefail` would otherwise abort the script before that line ever ran).
+Also ran the full docker-compose stack for real and confirmed, via its
+HTTP APIs (not just "containers are up"): Prometheus's target for the API
+reports `health: "up"`, a `predictions_total` query returns real data
+after a real `/predict` call and one scrape interval, and Grafana's
+`/api/search` shows the "Heart Disease API" dashboard auto-provisioned
+with zero manual clicking.
+
+### D7.7 — macOS Ingress verification uses `kubectl port-forward`, not `minikube tunnel`
+Tried `minikube tunnel` first, as the brief suggests. Its log said
+plainly: `The service/ingress heart-api-ingress requires privileged
+ports to be exposed: [80 443]. sudo permission will be asked for it` --
+and from a non-interactive script (no controlling TTY), `sudo` fails
+immediately rather than prompting, so the Ingress tunnel silently never
+came up (confirmed: nothing was listening on port 80 after `minikube
+tunnel` reported "successfully started"; what briefly appeared to answer
+on port 80 during debugging was this Mac's own unrelated local Apache
+instance, not minikube). The LoadBalancer side of `minikube tunnel`
+worked fine without sudo (its port, 8000, isn't privileged) -- only the
+Ingress's fixed 80/443 is the problem, and that's a property of Ingress
+itself, not something choosing a different app port avoids. Also, the
+project's lab explicitly disallows `sudo` entirely, so a script that only
+works via an interactive sudo prompt isn't portable to begin with.
+`scripts/k8s_verify.sh` now uses `kubectl port-forward` to arbitrary
+unprivileged local ports for both the Ingress controller and the
+LoadBalancer Service on macOS -- verified end-to-end: `/health` and
+`/predict` both return correctly through each path. Linux is unaffected
+(`minikube ip` is directly reachable there, no tunnel or port-forward
+needed for either path).
+
+### D7.8 — CI's `docker` job added now that `docker/Dockerfile` exists (resolves D6.6)
+D6.6 deferred this job to avoid a guaranteed-red CI step while the
+Dockerfile didn't exist yet. It exists now; `.github/workflows/ci.yml`'s
+`docker` job runs `scripts/run_container_smoke.sh` directly (no
+reimplemented build/run/curl logic -- the same script a developer runs
+locally), gated on `test` rather than `train`: the image is built from
+whatever `models/heart_model.joblib` is already committed in the repo
+(the thing a fresh `git clone` actually gets), not from `train`'s
+freshly-generated-but-never-committed artifact, so a slow or flaky UCI
+download in `train` can never block the container smoke test. GHCR push
+is still not wired up -- gated on asking the project owner first, per the
+brief, same as D7.1/D7.2.

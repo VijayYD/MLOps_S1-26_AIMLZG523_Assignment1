@@ -1,4 +1,6 @@
-.PHONY: check-env venv lint test data train mlflow-ui
+.PHONY: check-env venv lint test data train mlflow-ui \
+        build-image docker-smoke compose-up compose-down \
+        k8s-deploy k8s-verify k8s-teardown load-test
 
 check-env:
 	bash scripts/check_env.sh
@@ -22,3 +24,27 @@ train:
 
 mlflow-ui:
 	bash scripts/mlflow_ui.sh
+
+build-image:
+	bash scripts/build_image.sh
+
+docker-smoke:
+	bash scripts/run_container_smoke.sh
+
+compose-up:
+	docker compose -f docker/docker-compose.yml up -d --build
+
+compose-down:
+	docker compose -f docker/docker-compose.yml down
+
+k8s-deploy:
+	bash scripts/k8s_deploy.sh
+
+k8s-verify:
+	bash scripts/k8s_verify.sh
+
+k8s-teardown:
+	bash scripts/k8s_teardown.sh
+
+load-test:
+	bash scripts/load_test.sh

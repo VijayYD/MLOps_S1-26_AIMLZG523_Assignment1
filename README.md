@@ -13,16 +13,17 @@ cleaner 303-row Cleveland-only subset usually seen. See
 (populated in Phase 2).
 
 **Status:** data acquisition/EDA, modelling, experiment tracking, packaging,
-and CI/CD are done. Containerisation, Kubernetes deployment and monitoring
-sections below will be filled in as the corresponding phases land.
+CI/CD, containerisation, Kubernetes deployment and monitoring are all done.
+Lab-parity verification and the final report/documentation pass are next.
 
 ## Repository map
 
 ```
 src/heart_mlops/   Python package: data, features, models, api
 notebooks/         EDA / modelling / inference-demo notebooks
-scripts/           check_env, setup_venv, train, mlflow_ui, and (later) build_image,
-                   k8s_deploy, etc. -- bash equivalents of make targets
+scripts/           check_env, setup_venv, train, mlflow_ui, build_image,
+                   run_container_smoke, k8s_deploy, k8s_verify, load_test, k8s_teardown
+                   -- bash equivalents of make targets
 test/              pytest unit + API tests
 docker/            Dockerfile + docker-compose.yml
 k8s/               Kustomize manifests (base / monitoring / overlays/minikube)
@@ -36,9 +37,9 @@ docs/              Design decisions, architecture, video script
 
 - Python **3.13.x** on macOS (dev) / **3.12.x** on Linux (BITS Prayogshala lab)
 - git, curl, make
-- Docker (for Phases 7+)
-- minikube **v1.35.0** and kubectl (for Phases 7+; a missing `kubectl` falls
-  back to `minikube kubectl --` everywhere)
+- Docker
+- minikube **v1.35.0** and kubectl (a missing `kubectl` falls back to
+  `minikube kubectl --` everywhere)
 
 Run the preflight check first, on either OS:
 
@@ -128,6 +129,7 @@ MLflow server needed at serving time — `docs/DECISIONS.md` D5.1).
 | `GET /ready` | Readiness — `200` once the model artifact has loaded, else `503` |
 | `GET /model-info` | Model name/version/threshold/feature schema/metrics |
 | `POST /predict` | `prediction`, `label`, `confidence`, `risk_probability`, `threshold`, `model_version`, `request_id` |
+| `POST /predict/batch` | Same, for up to 100 records in one request (`{"records": [...]}` → `{"predictions": [...]}`) |
 | `GET /metrics` | Prometheus exposition format |
 | `GET /docs` | Auto-generated OpenAPI docs with field-level examples |
 
@@ -139,6 +141,59 @@ class, model version) and **never include the raw patient feature
 values** (`docs/DECISIONS.md` D6.4). Sample requests for manual testing
 are in [`test/sample_requests/`](test/sample_requests/).
 
+Two env vars let ops adjust behaviour without a rebuild: `LOG_LEVEL`
+(passed straight to the logger) and `PREDICTION_THRESHOLD` (overrides the
+packaged model's threshold at startup; the packaged `model_metadata.json`
+value stays the default when unset) — both wired into the Kubernetes
+ConfigMap below (`docs/DECISIONS.md` D7.3).
+
+## Containerisation
+
+```bash
+make build-image     # builds heart-mlops-api:latest -- or: bash scripts/build_image.sh
+make docker-smoke     # builds + runs + waits for health + checks every
+                      # test/sample_requests/*.json against its expected
+                      # status, saves the log to screenshots/logs/
+make compose-up       # API + Prometheus + Grafana locally, non-k8s
+make compose-down
+```
+
+`docker/Dockerfile`: multi-stage, `python:3.12.9-slim` (matches the lab),
+`--platform linux/amd64`, runs as a non-root user, only runtime
+dependencies (`requirements.txt`, not `-dev`), a `HEALTHCHECK` using
+stdlib `urllib` (no `curl` in the image), a configurable worker count
+(`UVICORN_WORKERS`), and OCI labels carrying the real version and git SHA.
+
+## Kubernetes deployment and monitoring
+
+```bash
+make k8s-deploy      # starts minikube if needed, enables ingress + metrics-server,
+                      # builds the image inside minikube's own Docker daemon,
+                      # applies k8s/overlays/minikube, waits for rollout
+make k8s-verify       # checks pods/svc/ingress/hpa, then calls /health and
+                      # /predict through BOTH the Ingress and the LoadBalancer
+make load-test        # small concurrent traffic generator, so Grafana has real data
+make k8s-teardown     # removes the app + monitoring stack (leaves minikube running)
+```
+
+Manifests are organised with **Kustomize** (`kubectl apply -k`, built into
+`kubectl` — no Helm): `k8s/base/` (namespace, ConfigMap, 2-replica
+Deployment with liveness/readiness probes and a non-root `securityContext`,
+ClusterIP Service, LoadBalancer Service, Ingress at host `heart-api.local`,
+and a CPU-based HPA scaling 2→5 replicas) plus `k8s/monitoring/`
+(Prometheus with Kubernetes pod-discovery scraping, Grafana with its
+datasource and the same dashboard docker-compose uses, both provisioned as
+code), composed together by `k8s/overlays/minikube/`.
+
+The Grafana admin password comes from a Secret `k8s_deploy.sh` generates
+from `.env`'s `GRAFANA_ADMIN_PASSWORD` — never committed. On macOS,
+`k8s_verify.sh` reaches the Ingress and LoadBalancer via
+`kubectl port-forward` rather than `minikube tunnel`, because the
+Ingress's privileged ports (80/443) need an interactive `sudo` password
+that an unattended script can't supply — and the lab disallows `sudo`
+entirely anyway (`docs/DECISIONS.md` D7.7). On Linux, `minikube ip` is
+directly reachable, so neither tunnel nor port-forward is needed.
+
 ## Testing and CI
 
 ```bash
@@ -149,12 +204,16 @@ make lint        # ruff check + ruff format --check
 
 `.github/workflows/ci.yml` runs on every push/PR to `main` plus manual
 dispatch: `lint` (ruff), `test` (matrix: Python 3.12.9 and 3.13.5,
-mirroring the lab and this Mac exactly), and `train` (downloads + cleans
-fresh data, falling back to the committed cleaned CSV with a clear warning
-if UCI is unreachable; trains; writes a metrics table to the job summary;
+mirroring the lab and this Mac exactly), `train` (downloads + cleans fresh
+data, falling back to the committed cleaned CSV with a clear warning if
+UCI is unreachable; trains; writes a metrics table to the job summary;
 uploads the packaged model, metadata, figures, and MLflow run data as
-artifacts). A `docker` job lands in Phase 7, once `docker/Dockerfile`
-exists for it to build (`docs/DECISIONS.md` D6.6).
+artifacts), and `docker` (builds the image from the repo's committed model
+artifact and runs the exact same `scripts/run_container_smoke.sh` a
+developer runs locally — gated on `test` rather than `train`, so a slow or
+flaky UCI download never blocks the container check; `docs/DECISIONS.md`
+D7.8). Pushing the built image to GHCR is not wired up — gated on asking
+first, per the brief.
 
 ## Design decisions
 
@@ -173,6 +232,6 @@ rationale and alternatives considered in [`docs/DECISIONS.md`](docs/DECISIONS.md
 | 4 — Experiment tracking (MLflow) | Done |
 | 5 — Packaging & reproducibility | Done |
 | 6 — CI/CD & automated testing | Done |
-| 7 — Containerisation, Kubernetes, monitoring | Not started |
+| 7 — Containerisation, Kubernetes, monitoring | Done |
 | 8 — Lab-parity verification | Not started |
 | 9 — Documentation & reporting | Not started |

@@ -1,0 +1,22 @@
+# Requires the minikube `ingress` addon (enabled by scripts/k8s_deploy.sh).
+# Reach it with a Host header rather than editing /etc/hosts:
+#   curl -H "Host: heart-api.local" http://<minikube-ip-or-tunnel>/health
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: heart-api-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: heart-api.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: heart-api
+                port:
+                  number: 80

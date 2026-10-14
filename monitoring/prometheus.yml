@@ -1,0 +1,12 @@
+# Used by docker/docker-compose.yml only. The Kubernetes deployment uses
+# kubernetes_sd_configs for pod discovery instead of this static target
+# (pod IPs aren't static) -- see k8s/monitoring/prometheus-configmap.yaml
+# and docs/DECISIONS.md D7.x for why these two scrape configs can't be
+# the same file.
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: heart-api
+    static_configs:
+      - targets: ["api:8000"]

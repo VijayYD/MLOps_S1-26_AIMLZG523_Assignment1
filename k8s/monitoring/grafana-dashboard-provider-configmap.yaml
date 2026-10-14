@@ -1,0 +1,17 @@
+# Same content as monitoring/grafana/provisioning/dashboards/dashboard-provider.yaml
+# (used by docker-compose) -- see the note in grafana-datasources-configmap.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provider
+data:
+  dashboard-provider.yaml: |
+    apiVersion: 1
+    providers:
+      - name: default
+        folder: ""
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 30
+        options:
+          path: /var/lib/grafana/dashboards

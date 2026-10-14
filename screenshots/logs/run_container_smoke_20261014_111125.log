@@ -1,0 +1,135 @@
+=== Building image ===
+#1 [internal] load build definition from Dockerfile
+#1 sha256:73773c1975f015a79f7ccb9442c1423e6258052f033e02bfebcc24e362635841
+#1 transferring dockerfile: 74B 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load .dockerignore
+#2 sha256:b35b77435bc48c6c1b797bfd1f4e8af8873e8cad84e687c3fa18e804f8119dd8
+#2 transferring context: 165B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12.9-slim
+#3 sha256:251bf917a0b45b8010a313486b16c7b0d0f7c5a8b17fb8957dad8b70dd5162a5
+#3 DONE 2.4s
+
+#4 [builder 1/4] FROM docker.io/library/python:3.12.9-slim@sha256:48a11b7ba705fd53bf15248d1f94d36c39549903c5d59edcfa2f3f84126e7b44
+#4 sha256:a8ebcd41c692465c8ac8fd4268032ee805d2aaafc4d117ec920c1144f51bbeac
+#4 CACHED
+
+#5 [runtime 2/7] RUN useradd --create-home --uid 1000 --shell /usr/sbin/nologin appuser
+#5 sha256:8ba7dce22159980c98cd981f8497fcf9fbb1b1df2277dcf29942bd570c57f222
+#5 ...
+
+#8 [internal] load build context
+#8 sha256:2abe79cd162e916a34d7255ba58874d40afc156d59a440d348c41745d63815a4
+#8 transferring context: 2.97kB 0.0s done
+#8 DONE 0.1s
+
+#7 [builder 2/4] WORKDIR /build
+#7 sha256:22f09590e214363fa2cca895814f34edd5055d0a5868db20892a7089e178397d
+#7 CACHED
+
+#9 [builder 3/4] COPY requirements.txt .
+#9 sha256:865263ccb923794cd3417351932134ee91c6d74295da89e2e454cd7dd78e3457
+#9 CACHED
+
+#10 [builder 4/4] RUN pip install --no-cache-dir --user -r requirements.txt
+#10 sha256:56a83d5c6ad04f3e07d93ffe0e2db88c20d30462744e9f98f00ac50d31c6343d
+#10 CACHED
+
+#5 [runtime 2/7] RUN useradd --create-home --uid 1000 --shell /usr/sbin/nologin appuser
+#5 sha256:8ba7dce22159980c98cd981f8497fcf9fbb1b1df2277dcf29942bd570c57f222
+#5 DONE 0.3s
+
+#6 [runtime 3/7] WORKDIR /app
+#6 sha256:02be8910557d6a00408ddc69dfdb9b6d95235bcdc9778bbeec9ab4a39fb46e69
+#6 DONE 0.0s
+
+#11 [runtime 4/7] COPY --from=builder /root/.local /home/appuser/.local
+#11 sha256:87d130d8ca697bd705f62cd35efe2ee6e2d92b4e2fdd5e4a8433e07d4b5eee22
+#11 DONE 6.4s
+
+#12 [runtime 5/7] COPY src/ src/
+#12 sha256:1d3da92887e1118d0c7491e0f5531fdaa175167903519409d8677de8cbc5e405
+#12 DONE 0.0s
+
+#13 [runtime 6/7] COPY models/heart_model.joblib models/model_metadata.json models/MODEL_CARD.md models/
+#13 sha256:eb477df86ae8650e151882b3f2282cb85d7eaa8caa7d1e8deee3739b3eb29606
+#13 DONE 0.0s
+
+#14 [runtime 7/7] RUN chown -R appuser:appuser /app
+#14 sha256:9495be656b1d1f8d87b466bd7178fec48bdc166d7686c161034cd5718da0e60b
+#14 DONE 0.3s
+
+#15 exporting to image
+#15 sha256:e8c613e07b0b7ff33893b694f7759a10d42e180f2b4dc349fb57dc6b71dcab00
+#15 exporting layers
+#15 exporting layers 5.0s done
+#15 writing image sha256:edca9d409857214f3fc26bbe61cd8298ba70ff7472543c5fe6ff260f04d75932 done
+#15 naming to docker.io/library/heart-mlops-api:smoke done
+#15 DONE 5.0s
+
+Use 'docker scan' to run Snyk tests against images to find vulnerabilities and learn how to fix them
+Built heart-mlops-api:smoke (git sha 6ffb19d5036dddd4b3099cb7903ad8c05856f3c8)
+=== Starting container ===
+c40248d93761c6e84738095cccff4702b6685fde86fede25701545db35aecd76
+=== Waiting for /health ===
+Healthy after 5s
+=== /ready ===
+{"status":"ready"}
+=== /model-info ===
+{"model_name":"logreg","model_version":"3","threshold":0.24173470986674506,"feature_schema":{"numeric":["age","trestbps","chol","thalach","oldpeak"],"categorical":["sex","cp","fbs","restecg","exang","slope","ca","thal"]},"metrics":{"accuracy":0.8043478260869565,"precision":0.7538461538461538,"recall":0.9607843137254902,"f1":0.8448275862068966,"roc_auc":0.9038737446197991,"pr_auc":0.9147582340917307,"brier":0.12003471225177618,"threshold":0.24173470986674506},"sklearn_version":"1.5.2","git_sha":"1729e800d9ad8c00184663fb479de488bd2a8e07","timestamp":"2026-10-14T05:00:56.606808+00:00"}
+=== Sample requests ===
+--- invalid_missing_field.json (expect HTTP 422) ---
+{"detail":[{"type":"missing","loc":["body","age"],"msg":"Field required","input":{"sex":1,"cp":1,"trestbps":145,"chol":233,"fbs":1,"restecg":2,"thalach":150,"exang":0,"oldpeak":2.3,"slope":3,"ca":0,"thal":6}}]}
+HTTP 422
+--- invalid_out_of_range.json (expect HTTP 422) ---
+{"detail":[{"type":"literal_error","loc":["body","sex"],"msg":"Input should be 0 or 1","input":2,"ctx":{"expected":"0 or 1"}}]}
+HTTP 422
+--- valid_high_risk.json (expect HTTP 200) ---
+{"prediction":1,"label":"Disease","confidence":0.33357277521439055,"risk_probability":0.33357277521439055,"threshold":0.24173470986674506,"model_version":"3","request_id":"4c300ee0-5522-439a-bc0f-eb513c535782"}
+HTTP 200
+--- valid_low_risk.json (expect HTTP 200) ---
+{"prediction":0,"label":"No disease","confidence":0.9067785110940074,"risk_probability":0.09322148890599255,"threshold":0.24173470986674506,"model_version":"3","request_id":"5820bd36-7ae3-4d72-8e7f-118c5d41976d"}
+HTTP 200
+=== /metrics (first 20 lines) ===
+# HELP python_gc_objects_collected_total Objects collected during gc
+# TYPE python_gc_objects_collected_total counter
+python_gc_objects_collected_total{generation="0"} 2788.0
+python_gc_objects_collected_total{generation="1"} 4879.0
+python_gc_objects_collected_total{generation="2"} 375.0
+# HELP python_gc_objects_uncollectable_total Uncollectable objects found during GC
+# TYPE python_gc_objects_uncollectable_total counter
+python_gc_objects_uncollectable_total{generation="0"} 0.0
+python_gc_objects_uncollectable_total{generation="1"} 0.0
+python_gc_objects_uncollectable_total{generation="2"} 0.0
+# HELP python_gc_collections_total Number of times this generation was collected
+# TYPE python_gc_collections_total counter
+python_gc_collections_total{generation="0"} 337.0
+python_gc_collections_total{generation="1"} 30.0
+python_gc_collections_total{generation="2"} 2.0
+# HELP python_info Python platform information
+# TYPE python_info gauge
+python_info{implementation="CPython",major="3",minor="12",patchlevel="9",version="3.12.9"} 1.0
+# HELP process_virtual_memory_bytes Virtual memory size in bytes.
+# TYPE process_virtual_memory_bytes gauge
+=== Container logs ===
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started parent process [7]
+INFO:     Started server process [10]
+INFO:     Waiting for application startup.
+INFO:     Started server process [9]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Application startup complete.
+INFO:     172.17.0.1:55790 - "GET /health HTTP/1.1" 200 OK
+INFO:     172.17.0.1:55800 - "GET /ready HTTP/1.1" 200 OK
+INFO:     172.17.0.1:55810 - "GET /model-info HTTP/1.1" 200 OK
+INFO:     172.17.0.1:55812 - "POST /predict HTTP/1.1" 422 Unprocessable Entity
+INFO:     172.17.0.1:55818 - "POST /predict HTTP/1.1" 422 Unprocessable Entity
+{"levelname": "INFO", "name": "heart_mlops.api", "message": "request", "taskName": null, "request_id": "4c300ee0-5522-439a-bc0f-eb513c535782", "path": "/predict", "status_code": 200, "latency_ms": 7.26, "predicted_class": 1, "model_version": "3", "timestamp": "2026-10-14 05:41:46,016"}
+INFO:     172.17.0.1:55828 - "POST /predict HTTP/1.1" 200 OK
+{"levelname": "INFO", "name": "heart_mlops.api", "message": "request", "taskName": null, "request_id": "5820bd36-7ae3-4d72-8e7f-118c5d41976d", "path": "/predict", "status_code": 200, "latency_ms": 9.63, "predicted_class": 0, "model_version": "3", "timestamp": "2026-10-14 05:41:46,052"}
+INFO:     172.17.0.1:55836 - "POST /predict HTTP/1.1" 200 OK
+INFO:     172.17.0.1:55844 - "GET /metrics HTTP/1.1" 200 OK
