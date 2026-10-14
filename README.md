@@ -12,10 +12,14 @@ cleaner 303-row Cleveland-only subset usually seen. See
 [`data/README.md`](data/README.md) for provenance and the column dictionary
 (populated in Phase 2).
 
-**Status:** data acquisition/EDA, modelling, experiment tracking, packaging,
-CI/CD, containerisation, Kubernetes deployment and monitoring are all done.
-Lab-parity verification is done too. The final report/documentation pass
-is next.
+**Status:** all nine phases are done — data/EDA, modelling, experiment
+tracking, packaging, CI/CD, containerisation, Kubernetes deployment and
+monitoring, lab-parity verification, and this documentation pass. The full
+written report is [`reports/MLOps_Assignment1_Report.docx`](reports/MLOps_Assignment1_Report.docx).
+
+![Architecture diagram](reports/figures/architecture.png)
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the walk-through.
 
 ## Repository map
 
@@ -142,6 +146,21 @@ class, model version) and **never include the raw patient feature
 values** (`docs/DECISIONS.md` D6.4). Sample requests for manual testing
 are in [`test/sample_requests/`](test/sample_requests/).
 
+```bash
+curl http://127.0.0.1:8000/health
+
+curl -X POST http://127.0.0.1:8000/predict \
+  -H "Content-Type: application/json" \
+  -d @test/sample_requests/valid_high_risk.json
+
+curl -X POST http://127.0.0.1:8000/predict/batch \
+  -H "Content-Type: application/json" \
+  -d '{"records": [
+        '"$(cat test/sample_requests/valid_high_risk.json)"',
+        '"$(cat test/sample_requests/valid_low_risk.json)"'
+      ]}'
+```
+
 Two env vars let ops adjust behaviour without a rebuild: `LOG_LEVEL`
 (passed straight to the logger) and `PREDICTION_THRESHOLD` (overrides the
 packaged model's threshold at startup; the packaged `model_metadata.json`
@@ -230,6 +249,27 @@ make lab-parity   # re-proves the exact pins in requirements*.txt install and
                   # run correctly inside a fresh python:3.12.9-slim container
 ```
 
+## Reporting
+
+```bash
+make report   # regenerates the architecture diagram and the DOCX report
+              # from the current figures/metadata -- or: .venv/bin/python reports/build_report.py
+```
+
+[`reports/MLOps_Assignment1_Report.docx`](reports/MLOps_Assignment1_Report.docx)
+pulls its metrics and tables directly from `models/model_metadata.json`
+and the CSVs in `reports/figures/`, and embeds every generated figure —
+so it can never drift from what the code actually produced. Any
+screenshot listed in
+[`screenshots/SCREENSHOT_CHECKLIST.md`](screenshots/SCREENSHOT_CHECKLIST.md)
+is embedded automatically once saved at its exact target path; otherwise
+the report shows a clearly labelled placeholder instead of guessing.
+Rendered and visually checked page-by-page before being called done —
+not just generated and assumed correct (`docs/DECISIONS.md` D9.2). See
+[`docs/DELIVERABLES.md`](docs/DELIVERABLES.md) for where every required
+deliverable lives, and [`docs/VIDEO_SCRIPT.md`](docs/VIDEO_SCRIPT.md) for
+the recorded-walkthrough script.
+
 ## Design decisions
 
 Every non-obvious choice in this project (dataset, missing-value handling,
@@ -249,4 +289,4 @@ rationale and alternatives considered in [`docs/DECISIONS.md`](docs/DECISIONS.md
 | 6 — CI/CD & automated testing | Done |
 | 7 — Containerisation, Kubernetes, monitoring | Done |
 | 8 — Lab-parity verification | Done |
-| 9 — Documentation & reporting | Not started |
+| 9 — Documentation & reporting | Done |
