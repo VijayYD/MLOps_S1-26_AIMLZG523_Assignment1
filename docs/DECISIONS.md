@@ -237,3 +237,51 @@ per-site leave-one-site-out results, and limitations -- logged as an
 MLflow artifact on the parent run. Phase 5 finalises/extends it (adds the
 packaged joblib artifact's version info, sklearn version, timestamp) once
 that artefact exists, rather than writing it from scratch twice.
+
+## Phase 5 — Model packaging and reproducibility
+
+### D5.1 — The API loads the joblib + metadata artifact, not the MLflow model/registry, at serving time
+`models/heart_model.joblib` + `models/model_metadata.json` are the only
+things the Docker image (Phase 7) needs to serve predictions. The
+alternative -- loading `models:/heart_disease_classifier@champion` from
+the MLflow Model Registry at container startup -- would make the serving
+container depend on an MLflow tracking server (or a shared SQLite file +
+`mlartifacts/` directory) being reachable, which is an extra moving part
+and an extra failure mode with zero benefit at serving time: the model is
+already fully trained and selected by the time it needs to serve traffic.
+Training (`python -m heart_mlops.models.train`) still logs everything to
+MLflow (Phase 4) for tracking/comparison/audit, and *also* writes the
+joblib + metadata pair as a direct byproduct of the same run -- so there
+is exactly one training path, with MLflow as the system of record for
+experiment history and the joblib artifact as the self-contained thing
+that actually ships.
+
+### D5.2 — The packaged joblib artifact is the exact same fitted pipeline registered in MLflow, not refit on the full dataset
+Considered refitting the selected model on the full 918-row dataset
+(train + hold-out combined) before packaging, to use all available data
+in the deployed model -- standard practice in some MLOps setups. Decided
+against it: doing so would make the MLflow-registered model and the
+joblib artifact two *different* trained models (one on 734 rows, one on
+918), contradicting the brief's framing of these as the same pipeline in
+two serialisation forms. It would also make `model_metadata.json`'s
+hold-out metrics describe a model that is not the one actually being
+shipped -- the 184 hold-out rows would no longer be held out from the
+artefact being evaluated. `models/heart_model.joblib` is therefore
+`search_results[selected_name].best_estimator_` (fit on the 734-row
+training split) -- byte-for-byte the same object passed to
+`mlflow.sklearn.log_model`, saved a second time in a different format.
+
+### D5.3 — Reproducibility test retrains with fixed hyperparameters, not a full re-tune
+Re-running the entire `RandomizedSearchCV` search twice (3 models x 30
+candidates x 5 folds, each) to prove reproducibility would cost ~12
+minutes per test run -- unworkable for a test that runs on every CI push
+(Phase 6). Since `RandomizedSearchCV` and the pipelines themselves are
+already seeded deterministically, the property actually worth testing is
+narrower: *given fixed hyperparameters and a fixed seed, does fitting the
+same pipeline twice on the same data produce the same predictions?*
+`test/test_reproducibility.py` reads the already-selected model's name
+and tuned hyperparameters straight out of `models/model_metadata.json`,
+fits two fresh instances, and asserts their predicted probabilities match
+to floating-point tolerance -- a fast, meaningful check of the actual
+shipped model's determinism, not a re-run of the (already-tested-by-having-
+run-once) tuning search.

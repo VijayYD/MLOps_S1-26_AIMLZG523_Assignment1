@@ -94,6 +94,25 @@ a hardcoded version number. Both the backend store (`mlflow.db`) and
 artifacts (`mlartifacts/`) are local and gitignored by default;
 `MLFLOW_TRACKING_URI` overrides this without code changes.
 
+## Model packaging
+
+`make train` also writes `models/heart_model.joblib` (the full
+preprocessing + classifier pipeline) and `models/model_metadata.json`
+(model name, registry version, threshold, feature schema, hold-out
+metrics, training data checksum, sklearn version, git SHA, timestamp).
+These are the *same* fitted pipeline just registered in MLflow, saved a
+second time in a serving-friendly format — the API (Phase 7) loads this
+pair directly rather than depending on an MLflow server being reachable at
+serving time (`docs/DECISIONS.md` D5.1/D5.2). Both files are small enough
+to commit, so `docker build` works on a fresh clone without retraining.
+See [`models/MODEL_CARD.md`](models/MODEL_CARD.md) for intended use,
+limitations, and per-site performance.
+
+`test/test_reproducibility.py` checks that re-fitting the packaged model's
+exact hyperparameters on the same data twice gives matching predictions
+(`pytest test/test_reproducibility.py`) — a fast determinism check, not a
+re-run of the full tuning search (`docs/DECISIONS.md` D5.3).
+
 ## Design decisions
 
 Every non-obvious choice in this project (dataset, missing-value handling,
@@ -109,7 +128,7 @@ rationale and alternatives considered in [`docs/DECISIONS.md`](docs/DECISIONS.md
 | 2 — Data acquisition & EDA | Done |
 | 3 — Feature engineering & modelling | Done |
 | 4 — Experiment tracking (MLflow) | Done |
-| 5 — Packaging & reproducibility | Not started |
+| 5 — Packaging & reproducibility | Done |
 | 6 — CI/CD & automated testing | Not started |
 | 7 — Containerisation, Kubernetes, monitoring | Not started |
 | 8 — Lab-parity verification | Not started |

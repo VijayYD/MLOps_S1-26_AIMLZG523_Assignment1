@@ -63,6 +63,7 @@ from heart_mlops.config import (
 )
 from heart_mlops.features.preprocess import MODEL_NAMES, build_pipeline
 from heart_mlops.models import evaluate as ev
+from heart_mlops.models import registry
 from heart_mlops.models.evaluate import compute_metrics, threshold_for_recall
 
 logger = logging.getLogger(__name__)
@@ -257,13 +258,13 @@ _PREPROCESSING_NOTES = {
 }
 
 
-def log_mlflow_run(run_context: dict) -> str:
+def log_mlflow_run(run_context: dict) -> dict:
     """Logs a full training session to MLflow: one parent run, one nested
     child run per model (params, CV + hold-out metrics, cv_results.csv,
     classification report), the selected model logged with a signature and
     input example, the model card and comparison plots as parent-level
     artifacts, and registers the selected model with the `champion` alias.
-    Returns the parent run id.
+    Returns {"parent_run_id": ..., "registered_version": ...}.
     """
     configure_mlflow()
 
@@ -388,7 +389,10 @@ def log_mlflow_run(run_context: dict) -> str:
                 MLFLOW_CHAMPION_ALIAS,
             )
 
-            return parent_run.info.run_id
+            return {
+                "parent_run_id": parent_run.info.run_id,
+                "registered_version": registered.version,
+            }
 
 
 def main() -> dict:
@@ -443,9 +447,28 @@ def main() -> dict:
     }
 
     with joblib.parallel_backend("threading"):
-        mlflow_run_id = log_mlflow_run(run_context)
-    logger.info("MLflow parent run id: %s", mlflow_run_id)
-    run_context["mlflow_run_id"] = mlflow_run_id
+        mlflow_result = log_mlflow_run(run_context)
+    logger.info("MLflow parent run id: %s", mlflow_result["parent_run_id"])
+    run_context["mlflow_run_id"] = mlflow_result["parent_run_id"]
+
+    # Packaged artifact (docs/DECISIONS.md D5.2): the *exact same* fitted
+    # pipeline just registered in MLflow -- not refit on the full dataset
+    # -- so the hold-out metrics in model_metadata.json truthfully describe
+    # the model actually being shipped, and the MLflow model format and the
+    # joblib artifact are provably the same model, not two different ones.
+    metadata = registry.build_metadata(
+        model_name=selected_name,
+        model_version=mlflow_result["registered_version"],
+        threshold=threshold,
+        hyperparameters=selected_search.best_params_,
+        metrics=holdout_metrics,
+        data_checksum=get_data_checksum(),
+        git_sha=get_git_sha(),
+    )
+    registry.save_packaged_model(selected_pipeline, metadata)
+    logger.info("Packaged model -> %s", registry.MODEL_PATH)
+    logger.info("Metadata -> %s", registry.METADATA_PATH)
+    run_context["metadata"] = metadata
 
     return run_context
 
