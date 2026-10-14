@@ -1,8 +1,13 @@
 # Model Card — Heart Disease Risk Classifier
 
-**Status:** drafted in Phase 4 (so it can be logged as an MLflow artifact
-alongside the first tracked training run); finalised in Phase 5 once the
-packaged joblib artifact and `model_metadata.json` exist alongside it.
+**Packaged artifact:** `models/heart_model.joblib` (full preprocessing +
+classifier pipeline) + `models/model_metadata.json` (version, threshold,
+feature schema, metrics, checksums, sklearn version, git SHA, timestamp --
+regenerate both with `make train`). MLflow Model Registry:
+`heart_disease_classifier`, alias `champion`. Both are the *same* fitted
+pipeline in two serialisation forms (docs/DECISIONS.md D5.2); the API
+(Phase 7) loads the joblib + metadata pair directly, not the MLflow
+model/registry (D5.1).
 
 ## Intended use
 
