@@ -145,3 +145,30 @@ jobs:
             reports/figures/
             mlflow.db
             mlartifacts/
+
+  docker:
+    # Builds from the repo's *committed* models/heart_model.joblib (Docker
+    # has no reason to wait for `train`'s freshly-generated-but-not-committed
+    # artifact -- see docs/DECISIONS.md D5.2/D5.3 on why the committed
+    # artifact is the one that matters for a fresh clone) -- `needs: [test]`
+    # is the real gate; `train` is left out on purpose so a flaky/slow UCI
+    # download never blocks the container smoke test.
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image and run container smoke test
+        run: |
+          set -euo pipefail
+          bash scripts/run_container_smoke.sh
+
+      - name: Upload smoke test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-smoke-log
+          path: screenshots/logs/run_container_smoke_*.log
+    # Pushing the built image to GHCR is intentionally not wired up here --
+    # the brief gates that behind asking first (see the project owner
+    # before adding it).

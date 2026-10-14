@@ -1,0 +1,12 @@
+# Usable with `minikube tunnel` (macOS) or directly via `minikube ip` (Linux).
+apiVersion: v1
+kind: Service
+metadata:
+  name: heart-api-lb
+spec:
+  type: LoadBalancer
+  selector:
+    app: heart-api
+  ports:
+    - port: 8000
+      targetPort: 8000

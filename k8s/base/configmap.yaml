@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: heart-api-config
+data:
+  LOG_LEVEL: "INFO"
+  UVICORN_WORKERS: "2"
+  API_PORT: "8000"
+  # PREDICTION_THRESHOLD is intentionally omitted here -- when unset, the
+  # API uses the threshold baked into the packaged model_metadata.json.
+  # Add it (and `kubectl rollout restart`) to override without retraining:
+  #   PREDICTION_THRESHOLD: "0.25"

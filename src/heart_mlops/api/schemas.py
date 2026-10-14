@@ -62,6 +62,15 @@ class PredictionResponse(BaseModel):
     request_id: str
 
 
+class BatchPredictRequest(BaseModel):
+    records: list[PatientFeatures] = Field(min_length=1, max_length=100)
+
+
+class BatchPredictResponse(BaseModel):
+    predictions: list[PredictionResponse]
+    request_id: str
+
+
 class HealthResponse(BaseModel):
     status: Literal["ok"]
 

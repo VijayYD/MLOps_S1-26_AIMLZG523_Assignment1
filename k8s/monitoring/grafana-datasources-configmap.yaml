@@ -1,0 +1,19 @@
+# Same content as monitoring/grafana/provisioning/datasources/datasource.yaml
+# (used by docker-compose) -- inlined here rather than read via Kustomize's
+# configMapGenerator `files:`, because Kustomize's security sandbox refuses
+# to reference any file outside the kustomization root (k8s/monitoring/),
+# even via a relative ../../ path. See docs/DECISIONS.md D7.x.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+data:
+  datasource.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus:9090
+        isDefault: true
+        editable: false

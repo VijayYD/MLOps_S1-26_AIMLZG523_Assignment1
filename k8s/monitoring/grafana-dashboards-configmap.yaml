@@ -1,0 +1,84 @@
+# Same content as monitoring/grafana/dashboards/heart_api.json (used by
+# docker-compose) -- see the note in grafana-datasources-configmap.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+data:
+  heart_api.json: |
+    {
+      "title": "Heart Disease API",
+      "uid": "heart-api",
+      "schemaVersion": 39,
+      "version": 1,
+      "editable": true,
+      "refresh": "10s",
+      "time": { "from": "now-15m", "to": "now" },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Request rate by status",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total[1m])) by (status)",
+              "legendFormat": "{{status}}"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "p95 request latency (seconds)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, endpoint))",
+              "legendFormat": "{{endpoint}}"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "title": "Predictions by class",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "targets": [
+            {
+              "expr": "sum(rate(predictions_total[5m])) by (predicted_class)",
+              "legendFormat": "class {{predicted_class}}"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "title": "Predicted risk probability (median, drift signal)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.5, sum(rate(risk_probability_bucket[5m])) by (le))",
+              "legendFormat": "p50 risk probability"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "title": "Inference error rate",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "targets": [
+            {
+              "expr": "rate(inference_errors_total[5m])",
+              "legendFormat": "inference errors/sec"
+            }
+          ]
+        }
+      ]
+    }

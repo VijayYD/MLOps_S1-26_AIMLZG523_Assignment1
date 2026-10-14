@@ -118,6 +118,63 @@ def test_predict_returns_503_when_model_not_loaded(api_client_model_not_loaded):
     assert response.status_code == 503
 
 
+def test_predict_batch_happy_path(api_client):
+    response = api_client.post("/predict/batch", json={"records": [VALID_PAYLOAD, VALID_PAYLOAD]})
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["predictions"]) == 2
+    for pred in body["predictions"]:
+        assert pred["prediction"] in (0, 1)
+        assert pred["request_id"].startswith(body["request_id"])
+
+
+def test_predict_batch_rejects_empty_list(api_client):
+    response = api_client.post("/predict/batch", json={"records": []})
+    assert response.status_code == 422
+
+
+def test_predict_batch_rejects_over_max_length(api_client):
+    response = api_client.post("/predict/batch", json={"records": [VALID_PAYLOAD] * 101})
+    assert response.status_code == 422
+
+
+def test_predict_batch_rejects_invalid_record_inside_batch(api_client):
+    bad_record = dict(VALID_PAYLOAD, sex=2)
+    response = api_client.post("/predict/batch", json={"records": [VALID_PAYLOAD, bad_record]})
+    assert response.status_code == 422
+
+
+def test_predict_batch_returns_503_when_model_not_loaded(api_client_model_not_loaded):
+    response = api_client_model_not_loaded.post("/predict/batch", json={"records": [VALID_PAYLOAD]})
+    assert response.status_code == 503
+
+
+def test_prediction_threshold_env_var_overrides_packaged_threshold(tiny_cleaned_df, monkeypatch):
+    pipeline = build_pipeline("logreg")
+    X = tiny_cleaned_df[MODEL_FEATURE_COLUMNS]
+    y = tiny_cleaned_df["target"]
+    pipeline.fit(X, y)
+    metadata = {
+        "model_name": "logreg",
+        "model_version": "1",
+        "threshold": 0.25,
+        "feature_schema": {"numeric": [], "categorical": []},
+        "metrics": {"accuracy": 0.8},
+        "sklearn_version": "1.5.2",
+        "git_sha": "testsha",
+        "timestamp": "2026-01-01T00:00:00+00:00",
+    }
+    monkeypatch.setattr("heart_mlops.api.main.load_packaged_model", lambda: (pipeline, metadata))
+    monkeypatch.setenv("PREDICTION_THRESHOLD", "0.9")
+
+    from heart_mlops.api.main import app
+
+    with TestClient(app) as client:
+        response = client.get("/model-info")
+
+    assert response.json()["threshold"] == 0.9
+
+
 @pytest.mark.parametrize(
     "field,bad_value",
     [
