@@ -472,3 +472,32 @@ freshly-generated-but-never-committed artifact, so a slow or flaky UCI
 download in `train` can never block the container smoke test. GHCR push
 is still not wired up -- gated on asking the project owner first, per the
 brief, same as D7.1/D7.2.
+
+## Phase 8 — Lab-parity verification
+
+### D8.1 — `git archive HEAD`, not a file copy, for the lab-parity container
+`scripts/lab_parity_check.sh` needs an exact copy of what the lab's
+`git clone` would actually get. `git archive HEAD` gives exactly the
+tracked, committed tree -- no `.venv`, no `data/raw/` downloads, no
+`mlruns`/`mlartifacts`, no stray local files -- without needing a
+hand-maintained exclude list that could drift out of sync with
+`.gitignore`. The archive is mounted read-only into the container and
+copied again to a writable path inside before anything installs, so the
+read-only mount is never written to.
+
+### D8.2 — Fresh-clone dry run found zero gaps in `LAB_RUNBOOK.md`
+Per the brief: cloned the repo fresh (from the local `.git` history, since
+nothing has been pushed to GitHub yet -- the first push still needs
+explicit go-ahead per the project's own git-hygiene rule) and followed
+`LAB_RUNBOOK.md` literally, step by step: `check_env.sh`, `setup_venv.sh`,
+`make data`, `make test`, `make train` (full real run, correct model
+selected, correct hold-out metrics), `make docker-smoke` (with a `PORT`
+override, to prove that override path works too), and `make k8s-deploy` +
+`k8s_verify.sh` against the already-running Minikube cluster (idempotent
+re-apply -- every resource came back `unchanged`, rollout healthy,
+`/health` and `/predict` both correct through Ingress and LoadBalancer).
+Every command worked exactly as written; no runbook edits were needed as
+a result. (One container-only observation, not a bug: `python:3.12.9-slim`
+has no `git` binary, so MLflow's own internal GitPython-based detection
+warns and continues -- this project's own `get_git_sha()` already expects
+exactly this and falls back to `"unknown"`, by design, D4.1-adjacent.)
