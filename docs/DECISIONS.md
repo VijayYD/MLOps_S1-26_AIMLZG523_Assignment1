@@ -501,3 +501,36 @@ a result. (One container-only observation, not a bug: `python:3.12.9-slim`
 has no `git` binary, so MLflow's own internal GitPython-based detection
 warns and continues -- this project's own `get_git_sha()` already expects
 exactly this and falls back to `"unknown"`, by design, D4.1-adjacent.)
+
+## Phase 9 — Documentation and reporting
+
+### D9.1 — `model_comparison.csv` / `leave_one_site_out.csv` are a transcription of the notebook's own output, not a re-computation
+`reports/build_report.py` needs the Phase 3 comparison and
+leave-one-site-out tables as data files, not hand-typed numbers in the
+report script -- but re-running the full ~6 minute hyperparameter search
+and leave-one-site-out evaluation just to regenerate two small already-
+computed tables (whose values are already fixed and committed in
+`notebooks/02_modelling.ipynb`'s executed output) would be wasteful.
+`reports/figures/model_comparison.csv` and `leave_one_site_out.csv` are a
+direct, verified transcription of that notebook's own stored output
+cells (read back from the `.ipynb` JSON and checked value-for-value, not
+retyped from memory) -- not an independent re-derivation. If Phase 3 is
+ever re-run with different results, these two files need regenerating
+from the new notebook output alongside it.
+
+### D9.2 — Rendered the DOCX to images and actually looked at it, rather than trusting python-docx's API to have done the right thing
+Installed LibreOffice (confirmed with the project owner, given the ~1GB
+download) specifically to render `reports/MLOps_Assignment1_Report.docx`
+to a real PDF and inspect each page as an image -- not just checking that
+`python-docx` ran without raising. This caught two real layout problems
+invisible from the generation code alone: a 16-column data-quality table
+that would have overflowed the page width (cut down to the 8 columns
+that actually matter, matching `data/README.md`'s own curated summary),
+and several near-square figures (ROC/PR/calibration/confusion-matrix,
+each originally sized to the same 6-inch width as every other figure)
+each consuming most of a page with a large blank gap below, inflating
+the report from an initial 21 pages to 18 and then, after narrowing just
+those four square figures specifically, to 16 -- closer to the brief's
+~10-page guidance without cutting any actual content. Removed the
+one-off `pymupdf` dependency from the venv afterward since it was a
+diagnostic tool for this check, not a project dependency.

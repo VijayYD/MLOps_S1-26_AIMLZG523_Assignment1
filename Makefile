@@ -1,6 +1,10 @@
-.PHONY: check-env venv lint test data train mlflow-ui \
+.PHONY: all check-env venv lint test data train mlflow-ui \
         build-image docker-smoke compose-up compose-down \
-        k8s-deploy k8s-verify k8s-teardown load-test lab-parity
+        k8s-deploy k8s-verify k8s-teardown load-test lab-parity report
+
+# End-to-end on a machine that already has .venv (scripts/setup_venv.sh) --
+# lint, data, test, train, in that order, matching the CI job sequence.
+all: lint data test train
 
 check-env:
 	bash scripts/check_env.sh
@@ -51,3 +55,6 @@ load-test:
 
 lab-parity:
 	bash scripts/lab_parity_check.sh
+
+report:
+	.venv/bin/python reports/build_report.py

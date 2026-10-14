@@ -1,0 +1,4 @@
+model,cv_roc_auc_mean,cv_roc_auc_std,holdout_accuracy,holdout_precision,holdout_recall,holdout_f1,holdout_roc_auc,holdout_pr_auc,holdout_brier,holdout_threshold
+logreg,0.905481,0.011241,0.804348,0.753846,0.960784,0.844828,0.903874,0.914758,0.120035,0.241861
+random_forest,0.899195,0.018732,0.793478,0.75,0.941176,0.834783,0.889766,0.885015,0.132131,0.355604
+hist_gb,0.894033,0.016649,0.809783,0.75969,0.960784,0.848485,0.897716,0.906234,0.121899,0.259527
