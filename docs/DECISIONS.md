@@ -196,3 +196,44 @@ search specifically (~95s instead of ~16s for 30 candidates x 5 folds,
 since nested joblib contexts downgrade `RandomForestClassifier(n_jobs=-1)`'s
 own parallelism to threads too). Accepted this runtime cost -- total
 training is still a few minutes -- in exchange for clean logs.
+
+## Phase 4 — Experiment tracking
+
+### D4.1 — `sqlalchemy==2.0.36` pinned explicitly (mlflow 2.18.0 incompatible with SQLAlchemy 2.1.x)
+`requirements.txt` didn't pin `sqlalchemy` directly; pip resolved the newest
+compatible-looking version, 2.1.4, which `mlflow==2.18.0`'s SQLite backend
+store cannot actually use -- `python -m heart_mlops.models.train` failed
+with `ImportError: cannot import name 'FallbackAsyncAdaptedQueuePool' from
+'sqlalchemy.pool'` as soon as it tried to open the tracking store (the
+tuning/selection logic itself ran correctly first; only the MLflow logging
+step failed). `FallbackAsyncAdaptedQueuePool` doesn't exist in SQLAlchemy
+2.1 -- mlflow 2.18.0 predates that release. Pinned `sqlalchemy==2.0.36`
+(the newest 2.0.x release) explicitly; verified it resolves the import and
+successfully runs mlflow's SQLite schema migrations end-to-end. Same
+lesson as D1.1 (mlflow's transitive pins drift out of sync with its actual
+compatibility range) -- checked by actually running the training script,
+not by reading version ranges.
+
+### D4.2 — Model Registry: `champion` alias, not the deprecated "Production" stage
+MLflow's older model-stage system (`None`/`Staging`/`Production`/`Archived`)
+is deprecated in favour of **aliases** -- arbitrary, mutable labels
+(`client.set_registered_model_alias`) that can point at any model version.
+Used a single alias, `champion`, pointing at whichever version the
+selection rule most recently chose. Verified this is genuinely mutable by
+running `python -m heart_mlops.models.train` twice: the second run created
+version 2 and moved `champion` from v1 to v2 automatically (confirmed via
+`MlflowClient.get_model_version_by_alias`), with v1 left in the registry,
+unaliased, for audit/rollback rather than being overwritten or deleted.
+Serving code (Phase 5+) should resolve the model by alias
+(`models:/heart_disease_classifier@champion`), never by a hardcoded
+version number, so promoting a new champion never requires a code change.
+
+### D4.3 — Model card drafted in Phase 4, not held until Phase 5
+The brief lists "the model card" among the artefacts this phase's MLflow
+run should log, but `models/MODEL_CARD.md` as a deliverable file is
+formally a Phase 5 task. Resolved the ordering conflict by drafting a real
+(not placeholder) model card now -- using the actual Phase 3 metrics,
+per-site leave-one-site-out results, and limitations -- logged as an
+MLflow artifact on the parent run. Phase 5 finalises/extends it (adds the
+packaged joblib artifact's version info, sklearn version, timestamp) once
+that artefact exists, rather than writing it from scratch twice.

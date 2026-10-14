@@ -12,9 +12,9 @@ cleaner 303-row Cleveland-only subset usually seen. See
 [`data/README.md`](data/README.md) for provenance and the column dictionary
 (populated in Phase 2).
 
-**Status:** repository scaffold and environment setup only. Data, modelling,
-serving, deployment and monitoring sections below will be filled in as the
-corresponding phases land.
+**Status:** data acquisition/EDA, feature engineering/modelling, and
+experiment tracking are done. Serving, deployment and monitoring sections
+below will be filled in as the corresponding phases land.
 
 ## Repository map
 
@@ -67,6 +67,33 @@ resolve to on `$PATH` — see [`docs/DECISIONS.md`](docs/DECISIONS.md#d03--scrip
 for why. It then installs `requirements-dev.txt` (a superset of
 `requirements.txt`) and prints `pip list`.
 
+## Data, training, and experiment tracking
+
+```bash
+make data        # downloads the 4 UCI site files (checksum-verified) and cleans them into
+                 # data/processed/heart_combined_clean.csv
+make train       # tunes all 3 models, selects one by the pre-registered rule in
+                 # docs/DECISIONS.md D3.1, logs everything to MLflow, registers the
+                 # champion -- or: bash scripts/train.sh (also runs `make data` first
+                 # if the cleaned CSV isn't present yet)
+make mlflow-ui   # serves the MLflow UI at http://127.0.0.1:5001 -- or: bash scripts/mlflow_ui.sh
+```
+
+Each training run creates one MLflow parent run ("training-session") with
+one nested child run per model (hyperparameters, CV + hold-out metrics,
+`cv_results.csv`, classification report, confusion matrix); the selected
+model's child run additionally gets a feature-importance plot and the
+logged model itself (with signature + input example). The parent run also
+gets the model comparison table, ROC/PR/calibration plots, and the model
+card. The selected model is registered under
+`heart_disease_classifier` and aliased `champion` -- not MLflow's
+deprecated Staging/Production *stages* (see
+[`docs/DECISIONS.md`](docs/DECISIONS.md) D4.2) -- so serving code should
+always resolve it as `models:/heart_disease_classifier@champion`, never by
+a hardcoded version number. Both the backend store (`mlflow.db`) and
+artifacts (`mlartifacts/`) are local and gitignored by default;
+`MLFLOW_TRACKING_URI` overrides this without code changes.
+
 ## Design decisions
 
 Every non-obvious choice in this project (dataset, missing-value handling,
@@ -79,9 +106,9 @@ rationale and alternatives considered in [`docs/DECISIONS.md`](docs/DECISIONS.md
 |---|---|
 | 0 — Preflight | Done |
 | 1 — Repository scaffold | Done |
-| 2 — Data acquisition & EDA | Not started |
-| 3 — Feature engineering & modelling | Not started |
-| 4 — Experiment tracking (MLflow) | Not started |
+| 2 — Data acquisition & EDA | Done |
+| 3 — Feature engineering & modelling | Done |
+| 4 — Experiment tracking (MLflow) | Done |
 | 5 — Packaging & reproducibility | Not started |
 | 6 — CI/CD & automated testing | Not started |
 | 7 — Containerisation, Kubernetes, monitoring | Not started |
