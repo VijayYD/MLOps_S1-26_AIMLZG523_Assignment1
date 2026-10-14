@@ -534,3 +534,18 @@ those four square figures specifically, to 16 -- closer to the brief's
 ~10-page guidance without cutting any actual content. Removed the
 one-off `pymupdf` dependency from the venv afterward since it was a
 diagnostic tool for this check, not a project dependency.
+
+### D9.3 — CI verified on GitHub itself, including the deliberate-failure case, not just locally
+Pushed `main` for the first time (confirmed with the project owner) and
+watched the real run: all five jobs (`lint`, `test` x2, `train`, `docker`)
+passed on the first push. Then, per the Definition of Done, proved CI
+fails correctly: a throwaway branch (`ci-fail-demo`) with one assertion in
+`test/test_data.py::test_target_binarisation` changed to an intentionally
+wrong expected value, opened as a PR to trigger the `pull_request`
+workflow trigger. Result matched the workflow's own `needs:` design
+exactly: `lint` still passed (the breakage is a logic error, not a style
+one), both `test` jobs failed on the broken assertion, and `train`/`docker`
+correctly *skipped* rather than running, since both depend on `test`
+succeeding first. Closed the PR without merging and deleted the branch
+(confirmed gone on GitHub via the API, and pruned locally); `main`'s own
+test suite re-run afterward, unaffected, still 68 passed at 93% coverage.
