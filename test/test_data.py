@@ -57,7 +57,9 @@ def test_target_binarisation():
         ]
     )
     cleaned = clean(df)
-    assert cleaned["target"].tolist() == [0, 1, 1]
+    # Deliberately wrong assertion -- CI red/green demo on a throwaway
+    # branch, per the project's Definition of Done. Never merged to main.
+    assert cleaned["target"].tolist() == [1, 1, 1]
     assert cleaned["num"].tolist() == [0, 1, 4]
 
 
