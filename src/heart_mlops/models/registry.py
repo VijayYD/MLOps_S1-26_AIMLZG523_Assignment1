@@ -60,7 +60,10 @@ def build_metadata(
 
 
 def save_packaged_model(pipeline, metadata: dict[str, Any]) -> None:
-    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    # MODEL_PATH.parent, not the module-level MODELS_DIR constant directly --
+    # tests override MODEL_PATH/METADATA_PATH to point at a tmp_path, and
+    # this must create *that* directory, not the real project models/ dir.
+    MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(pipeline, MODEL_PATH)
     METADATA_PATH.write_text(json.dumps(metadata, indent=2, default=str) + "\n")
 

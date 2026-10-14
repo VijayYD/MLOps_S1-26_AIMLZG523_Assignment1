@@ -12,17 +12,17 @@ cleaner 303-row Cleveland-only subset usually seen. See
 [`data/README.md`](data/README.md) for provenance and the column dictionary
 (populated in Phase 2).
 
-**Status:** data acquisition/EDA, feature engineering/modelling, and
-experiment tracking are done. Serving, deployment and monitoring sections
-below will be filled in as the corresponding phases land.
+**Status:** data acquisition/EDA, modelling, experiment tracking, packaging,
+and CI/CD are done. Containerisation, Kubernetes deployment and monitoring
+sections below will be filled in as the corresponding phases land.
 
 ## Repository map
 
 ```
 src/heart_mlops/   Python package: data, features, models, api
 notebooks/         EDA / modelling / inference-demo notebooks
-scripts/           check_env, setup_venv, and (later) download_data, train,
-                   build_image, k8s_deploy, etc. -- bash equivalents of make targets
+scripts/           check_env, setup_venv, train, mlflow_ui, and (later) build_image,
+                   k8s_deploy, etc. -- bash equivalents of make targets
 test/              pytest unit + API tests
 docker/            Dockerfile + docker-compose.yml
 k8s/               Kustomize manifests (base / monitoring / overlays/minikube)
@@ -113,6 +113,49 @@ exact hyperparameters on the same data twice gives matching predictions
 (`pytest test/test_reproducibility.py`) — a fast determinism check, not a
 re-run of the full tuning search (`docs/DECISIONS.md` D5.3).
 
+## API
+
+```bash
+.venv/bin/uvicorn heart_mlops.api.main:app --reload --port 8000
+```
+
+Loads `models/heart_model.joblib` + `model_metadata.json` directly (no
+MLflow server needed at serving time — `docs/DECISIONS.md` D5.1).
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /health` | Liveness — always `200` once the process is up |
+| `GET /ready` | Readiness — `200` once the model artifact has loaded, else `503` |
+| `GET /model-info` | Model name/version/threshold/feature schema/metrics |
+| `POST /predict` | `prediction`, `label`, `confidence`, `risk_probability`, `threshold`, `model_version`, `request_id` |
+| `GET /metrics` | Prometheus exposition format |
+| `GET /docs` | Auto-generated OpenAPI docs with field-level examples |
+
+All 13 `PatientFeatures` fields are required, with evidence-based clinical
+range validation (`docs/DECISIONS.md` D6.2) — out-of-range values or a
+missing field return `422`, not a 500 or a silent bad prediction. Request
+logs are structured JSON (request id, path, status, latency, predicted
+class, model version) and **never include the raw patient feature
+values** (`docs/DECISIONS.md` D6.4). Sample requests for manual testing
+are in [`test/sample_requests/`](test/sample_requests/).
+
+## Testing and CI
+
+```bash
+make test        # or: .venv/bin/pytest -- JUnit XML + coverage XML/HTML,
+                 # fails under 90% coverage (docs/DECISIONS.md D6.5)
+make lint        # ruff check + ruff format --check
+```
+
+`.github/workflows/ci.yml` runs on every push/PR to `main` plus manual
+dispatch: `lint` (ruff), `test` (matrix: Python 3.12.9 and 3.13.5,
+mirroring the lab and this Mac exactly), and `train` (downloads + cleans
+fresh data, falling back to the committed cleaned CSV with a clear warning
+if UCI is unreachable; trains; writes a metrics table to the job summary;
+uploads the packaged model, metadata, figures, and MLflow run data as
+artifacts). A `docker` job lands in Phase 7, once `docker/Dockerfile`
+exists for it to build (`docs/DECISIONS.md` D6.6).
+
 ## Design decisions
 
 Every non-obvious choice in this project (dataset, missing-value handling,
@@ -129,7 +172,7 @@ rationale and alternatives considered in [`docs/DECISIONS.md`](docs/DECISIONS.md
 | 3 — Feature engineering & modelling | Done |
 | 4 — Experiment tracking (MLflow) | Done |
 | 5 — Packaging & reproducibility | Done |
-| 6 — CI/CD & automated testing | Not started |
+| 6 — CI/CD & automated testing | Done |
 | 7 — Containerisation, Kubernetes, monitoring | Not started |
 | 8 — Lab-parity verification | Not started |
 | 9 — Documentation & reporting | Not started |

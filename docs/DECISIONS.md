@@ -285,3 +285,78 @@ fits two fresh instances, and asserts their predicted probabilities match
 to floating-point tolerance -- a fast, meaningful check of the actual
 shipped model's determinism, not a re-run of the (already-tested-by-having-
 run-once) tuning search.
+
+## Phase 6 — CI/CD and automated testing
+
+### D6.1 — The API is built now, not held until Phase 7
+The brief's Phase 6 test list explicitly requires FastAPI `TestClient`
+tests (`/health`, `/ready`, `/predict`, validation errors, `/metrics`),
+but `src/heart_mlops/api/` is formally a Phase 7 ("Containerisation...")
+deliverable -- the same kind of ordering conflict as the model card (D4.3).
+Resolved the same way: built a real, functional API now
+(`main.py`/`schemas.py`/`metrics.py`/`logging_config.py`) so Phase 6 can
+test it properly, with Phase 7 adding the Docker/Kubernetes/Prometheus
+operational wrapping around what already works, not building the API
+itself from scratch at that point.
+
+### D6.2 — All 13 request fields are required; none are nullable
+The trained pipeline can handle missing values internally (that's the
+entire point of the imputation work in Phase 3), but a client-facing API
+that accepts partial clinical records adds real complexity -- which
+fields may be omitted together, how `Literal` categorical fields interact
+with `None`, what "missing at inference time" should even mean for a
+single synchronous prediction request -- for a feature this project does
+not otherwise need. All 13 `PatientFeatures` fields are required, with
+evidence-based bounds taken from the actual observed min/max in
+`data/processed/heart_combined_clean.csv` (not guessed) plus headroom for
+clinically plausible values outside this particular 918-row sample --
+e.g. `oldpeak`'s lower bound is -3.0, not a naive >=0, because the real
+data's minimum is -2.6.
+
+### D6.3 — Found and fixed a real dtype bug between training and serving
+Manually smoke-testing `/predict` with a realistic JSON payload (ints for
+`sex`/`cp`/etc., as any real client would send) raised a 500 error:
+`ValueError: The dtype of the filling value (float64) cannot be cast to
+... dtype('int64')`. Root cause: at training time, `ColumnTransformer`
+extracts the categorical columns into one array; pandas upcasts a mix of
+int64 (`sex`, `cp` -- never missing) and float64 (the rest -- have NaN) to
+a common float64 dtype, so the fitted `SimpleImputer` expects float64.
+Pydantic's `Literal[int]` fields give plain Python `int`s, which pandas
+stores as int64 when *every* categorical value in a request happens to be
+an int (the normal case) -- a dtype mismatch sklearn correctly refuses.
+Fixed by explicitly casting the assembled request row to `float64` before
+calling `predict_proba` in `main.py`. Caught by actually calling the
+endpoint with realistic input, not just unit-testing each piece in
+isolation -- worth remembering for Phase 7's container smoke test too.
+
+### D6.4 — No raw patient features in logs
+`api/logging_config.py::log_request` logs request id, path, status code,
+latency, predicted class and model version -- never the request body.
+Patient-level clinical data is sensitive, retained in log files far
+longer than the request itself persists, and nothing about serving or
+debugging predictions requires it to be there. Verified with a test that
+asserts distinctive feature values from a real request never appear in
+captured log output.
+
+### D6.5 — Coverage target: 90% (confirmed with the project owner)
+The brief asked for a proposed-and-confirmed target; proposed 80% (its
+own suggested figure) and the project owner asked for 90% instead. Met
+with unit tests across data/preprocessing/model/API, plus one fast
+end-to-end integration test (`test_main_end_to_end_with_tiny_data_and_grids`)
+that runs the real training + MLflow-logging + packaging code path against
+a tiny synthetic fixture and tiny hyperparameter grids/fold counts --
+seconds instead of the ~6 minutes the full search takes on the full
+dataset -- rather than mocking that path into something less trustworthy.
+Actual result: 93% (`pytest`'s `--cov-fail-under=90` enforces the floor in
+CI going forward).
+
+### D6.6 — The CI `docker` job is deferred to Phase 7
+The brief's Phase 6 CI description includes a `docker` job (build image,
+run container, curl `/predict`). `docker/Dockerfile` does not exist yet --
+it is a Phase 7 deliverable. Rather than add a job guaranteed to fail
+until Phase 7 lands (which would make `main` red for a reason that has
+nothing to do with a real regression), `.github/workflows/ci.yml` ships
+now with `lint`, `test` (matrix: Python 3.12.9 and 3.13.5, mirroring the
+Mac and lab exactly), and `train` jobs only. Phase 7 extends this same
+file with the `docker` job once there is something real for it to build
+and test.

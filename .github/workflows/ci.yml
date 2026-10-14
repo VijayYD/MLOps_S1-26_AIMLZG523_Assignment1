@@ -1,0 +1,147 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.5"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          pip install -r requirements-dev.txt
+
+      - name: ruff check + format
+        run: |
+          set -euo pipefail
+          ruff check .
+          ruff format --check .
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        # Mirrors the two real environments this project targets: the Mac
+        # dev machine (3.13.5) and the BITS Prayogshala lab (3.12.9).
+        python-version: ["3.12.9", "3.13.5"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          pip install -r requirements-dev.txt
+          pip install -e .
+
+      - name: Run tests (JUnit XML + coverage XML/HTML)
+        run: |
+          set -euo pipefail
+          pytest
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-py${{ matrix.python-version }}
+          path: |
+            junit.xml
+            coverage.xml
+            htmlcov/
+
+  train:
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.5"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          pip install -r requirements-dev.txt
+          pip install -e .
+
+      - name: Download and clean data (falls back to the committed cleaned CSV if UCI is unreachable)
+        run: |
+          set -euo pipefail
+          if python -m heart_mlops.data.download && python -m heart_mlops.data.clean; then
+            echo "Downloaded and cleaned fresh data from UCI."
+          else
+            echo "::warning::UCI download/clean failed -- falling back to the committed data/processed/heart_combined_clean.csv"
+            if [ ! -f data/processed/heart_combined_clean.csv ]; then
+              echo "::error::No committed cleaned CSV available as a fallback -- cannot proceed."
+              exit 1
+            fi
+          fi
+
+      - name: Train (tunes, selects, logs to MLflow, packages the model)
+        run: |
+          set -euo pipefail
+          python -m heart_mlops.models.train
+
+      - name: Write metrics summary
+        run: |
+          set -euo pipefail
+          python - <<'EOF'
+          import json
+          import os
+
+          with open("models/model_metadata.json") as f:
+              metadata = json.load(f)
+
+          lines = [
+              f"### Selected model: `{metadata['model_name']}` (registry v{metadata['model_version']})",
+              "",
+              f"Threshold: `{metadata['threshold']:.4f}`",
+              "",
+              "| Metric | Value |",
+              "|---|---|",
+          ]
+          for key, value in metadata["metrics"].items():
+              formatted = f"{value:.4f}" if isinstance(value, float) else str(value)
+              lines.append(f"| {key} | {formatted} |")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write("\n".join(lines) + "\n")
+          EOF
+
+      - name: Upload training artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: training-artifacts
+          path: |
+            models/heart_model.joblib
+            models/model_metadata.json
+            reports/figures/
+            mlflow.db
+            mlartifacts/
