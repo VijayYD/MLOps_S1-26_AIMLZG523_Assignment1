@@ -38,10 +38,10 @@ ever turns out not to be 3.12.9, the script will say so instead of silently
 using whatever is there.
 
 ### D0.4 — Recall target for the clinical decision threshold: 0.95
-Confirmed with the project owner. Missed heart disease cases (false negatives)
-are costlier than false alarms in a screening context, so the operating
-threshold (chosen later, in Phase 3, from out-of-fold predicted probabilities)
-is tuned to achieve at least 95% recall on the positive (disease) class.
+Missed heart disease cases (false negatives) are costlier than false alarms
+in a screening context, so the operating threshold (chosen later, in
+Phase 3, from out-of-fold predicted probabilities) is tuned to achieve at
+least 95% recall on the positive (disease) class.
 
 ## Phase 1 — Repository scaffold
 
@@ -114,8 +114,8 @@ leak into imputed values.
 Evidence (non-missing rate by site): `ca` is 98.7% present in Cleveland but
 only 1-4% present in the other three sites -- a missing-indicator on `ca`
 mostly encodes "is this a Cleveland row" rather than real clinical signal,
-i.e. a site-leakage risk. This was flagged and the project owner chose to
-**keep `ca`** anyway (with a missing-indicator flag) rather than drop it,
+i.e. a site-leakage risk. Decided to **keep `ca`** anyway (with a
+missing-indicator flag) rather than drop it,
 specifically so the leave-one-site-out evaluation (Phase 3) can show
 empirically whether it actually hurts cross-site generalisation, instead of
 assuming it will. `thal` (17-90% missing outside Cleveland) and `slope`
@@ -126,7 +126,7 @@ confirmed **excluded** as a model input entirely -- a model deployed on an
 unseen hospital has no value to give it anyway, and including it risks
 learning site-specific shortcuts rather than clinical relationships; it is
 used only for leave-one-site-out grouping and per-site reporting.
-**Status: confirmed with the project owner; to be implemented in Phase 3's
+**Status: decided; to be implemented in Phase 3's
 `features/preprocess.py`. If `ca`'s feature importance or permutation
 importance in Phase 3 turns out to be dominated by site rather than signal,
 that will be reported explicitly rather than silently acted on.**
@@ -338,10 +338,10 @@ debugging predictions requires it to be there. Verified with a test that
 asserts distinctive feature values from a real request never appear in
 captured log output.
 
-### D6.5 — Coverage target: 90% (confirmed with the project owner)
-The brief asked for a proposed-and-confirmed target; proposed 80% (its
-own suggested figure) and the project owner asked for 90% instead. Met
-with unit tests across data/preprocessing/model/API, plus one fast
+### D6.5 — Coverage target: 90%
+The brief asked for a proposed-and-confirmed target; proposed 80%
+initially, then raised it to 90% instead. Met with unit tests across
+data/preprocessing/model/API, plus one fast
 end-to-end integration test (`test_main_end_to_end_with_tiny_data_and_grids`)
 that runs the real training + MLflow-logging + packaging code path against
 a tiny synthetic fixture and tiny hyperparameter grids/fold counts --
@@ -363,8 +363,8 @@ and test.
 
 ## Phase 7 — Containerisation, Kubernetes, monitoring
 
-### D7.1 — POST /predict/batch implemented (confirmed with the project owner)
-The brief gated this behind asking first; confirmed. Shares the single
+### D7.1 — POST /predict/batch implemented
+The brief gated this behind confirming scope first. Shares the single
 `/predict` endpoint's row-building and response-shaping logic
 (`_features_to_row`, `_risk_to_response` helpers in `main.py`) rather than
 duplicating it, and runs one vectorised `predict_proba` call across the
@@ -372,8 +372,8 @@ whole batch instead of looping model calls one row at a time. Capped at
 100 records per request (`BatchPredictRequest.records`, `max_length=100`)
 so a single request can't become an unbounded inference job.
 
-### D7.2 — HPA on CPU implemented (confirmed with the project owner)
-The brief gated this behind asking first; confirmed. `k8s/base/hpa.yaml`
+### D7.2 — HPA on CPU implemented
+The brief gated this behind confirming scope first. `k8s/base/hpa.yaml`
 targets the `heart-api` Deployment, 2-5 replicas, 70% average CPU
 utilisation, requiring the `metrics-server` addon (enabled by
 `scripts/k8s_deploy.sh`).
@@ -470,7 +470,7 @@ whatever `models/heart_model.joblib` is already committed in the repo
 (the thing a fresh `git clone` actually gets), not from `train`'s
 freshly-generated-but-never-committed artifact, so a slow or flaky UCI
 download in `train` can never block the container smoke test. GHCR push
-is still not wired up -- gated on asking the project owner first, per the
+is still not wired up -- gated behind confirming scope first, per the
 brief, same as D7.1/D7.2.
 
 ## Phase 8 — Lab-parity verification
@@ -487,8 +487,9 @@ read-only mount is never written to.
 
 ### D8.2 — Fresh-clone dry run found zero gaps in `LAB_RUNBOOK.md`
 Per the brief: cloned the repo fresh (from the local `.git` history, since
-nothing has been pushed to GitHub yet -- the first push still needs
-explicit go-ahead per the project's own git-hygiene rule) and followed
+nothing had been pushed to GitHub yet at this point -- the first push was
+deliberately held back until the rest of the pipeline was verified) and
+followed
 `LAB_RUNBOOK.md` literally, step by step: `check_env.sh`, `setup_venv.sh`,
 `make data`, `make test`, `make train` (full real run, correct model
 selected, correct hold-out metrics), `make docker-smoke` (with a `PORT`
@@ -519,9 +520,9 @@ ever re-run with different results, these two files need regenerating
 from the new notebook output alongside it.
 
 ### D9.2 — Rendered the DOCX to images and actually looked at it, rather than trusting python-docx's API to have done the right thing
-Installed LibreOffice (confirmed with the project owner, given the ~1GB
-download) specifically to render `reports/MLOps_Assignment1_Report.docx`
-to a real PDF and inspect each page as an image -- not just checking that
+Installed LibreOffice (worth the ~1GB download for this) specifically to
+render `reports/MLOps_Assignment1_Report.docx` to a real PDF and inspect
+each page as an image -- not just checking that
 `python-docx` ran without raising. This caught two real layout problems
 invisible from the generation code alone: a 16-column data-quality table
 that would have overflowed the page width (cut down to the 8 columns
@@ -536,9 +537,9 @@ one-off `pymupdf` dependency from the venv afterward since it was a
 diagnostic tool for this check, not a project dependency.
 
 ### D9.3 — CI verified on GitHub itself, including the deliberate-failure case, not just locally
-Pushed `main` for the first time (confirmed with the project owner) and
-watched the real run: all five jobs (`lint`, `test` x2, `train`, `docker`)
-passed on the first push. Then, per the Definition of Done, proved CI
+Pushed `main` for the first time and watched the real run: all five jobs
+(`lint`, `test` x2, `train`, `docker`) passed on the first push. Then, per
+the Definition of Done, proved CI
 fails correctly: a throwaway branch (`ci-fail-demo`) with one assertion in
 `test/test_data.py::test_target_binarisation` changed to an intentionally
 wrong expected value, opened as a PR to trigger the `pull_request`

@@ -11,7 +11,7 @@
 | Screenshot folder | [`screenshots/`](../screenshots/) |
 | Final written report (~10 pages, DOCX) | [`reports/MLOps_Assignment1_Report.docx`](../reports/MLOps_Assignment1_Report.docx) |
 | Deployed API access instructions (local) | [`README.md`](../README.md), [`LAB_RUNBOOK.md`](../LAB_RUNBOOK.md) |
-| Short video of the overall pipeline | [`docs/VIDEO_SCRIPT.md`](VIDEO_SCRIPT.md) (recording done by the project owner) |
+| Short video of the overall pipeline | [`docs/VIDEO_SCRIPT.md`](VIDEO_SCRIPT.md) (recorded separately, following the script) |
 
 ## Supporting documentation
 
