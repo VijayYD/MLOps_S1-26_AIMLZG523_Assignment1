@@ -1,6 +1,14 @@
 """Generates reports/figures/architecture.png -- the architecture diagram
 referenced by README.md, docs/ARCHITECTURE.md, and the DOCX report.
 
+Layout is a strict grid: every arrow connects two boxes that are either
+in the same row (horizontal) or the same column (vertical) -- no
+diagonal connectors -- so nothing crosses another box or another arrow.
+The main pipeline snakes top-to-bottom (row 1 left-to-right, row 2
+right-to-left, row 3 left-to-right again); MLflow and the two monitoring
+boxes are short dead-end branches off the main spine, drawn in their own
+colour so they read as side branches rather than a continuation.
+
 Usage:
     python reports/build_architecture_diagram.py
 """
@@ -22,111 +30,141 @@ COLORS = {
     "monitor": "#64B5CD",
 }
 
+BOX_W = 1.7
+BOX_H = 0.95
 
-def _box(ax, xy, w, h, text, color, fontsize=9.5):
-    x, y = xy
+
+def _box(ax, x, y, text, color, fontsize=9.0):
     box = mpatches.FancyBboxPatch(
         (x, y),
-        w,
-        h,
+        BOX_W,
+        BOX_H,
         boxstyle="round,pad=0.02,rounding_size=0.08",
         linewidth=1.3,
         edgecolor="#333333",
         facecolor=color,
-        alpha=0.85,
+        alpha=0.9,
     )
     ax.add_patch(box)
     ax.text(
-        x + w / 2,
-        y + h / 2,
+        x + BOX_W / 2,
+        y + BOX_H / 2,
         text,
         ha="center",
         va="center",
         fontsize=fontsize,
         fontweight="bold",
         color="white",
-        wrap=True,
     )
-    return (x, y, w, h)
+    return (x, y)
 
 
-def _arrow(ax, box_a, box_b, label=None, style="-|>"):
-    ax_, ay_, aw, ah = box_a
-    bx_, by_, bw, bh = box_b
-    start = (ax_ + aw / 2, ay_ + ah / 2)
-    end = (bx_ + bw / 2, by_ + bh / 2)
+def _arrow_right(ax, box_a, label=None):
+    """Horizontal arrow from box_a's right edge to the next box (box_a's
+    x + one grid pitch), same y -- used for same-row connections."""
+    ax_, ay_ = box_a
+    start = (ax_ + BOX_W, ay_ + BOX_H / 2)
+    end = (ax_ + BOX_W + 0.35, ay_ + BOX_H / 2)
+    _draw_arrow(ax, start, end, label)
+
+
+def _arrow_left(ax, box_a, label=None):
+    ax_, ay_ = box_a
+    start = (ax_, ay_ + BOX_H / 2)
+    end = (ax_ - 0.35, ay_ + BOX_H / 2)
+    _draw_arrow(ax, start, end, label)
+
+
+def _arrow_down(ax, box_a, label=None):
+    """Vertical arrow from box_a's bottom edge straight down -- used when
+    the next box in the same column is in the row below."""
+    ax_, ay_ = box_a
+    start = (ax_ + BOX_W / 2, ay_)
+    end = (ax_ + BOX_W / 2, ay_ - 0.35)
+    _draw_arrow(ax, start, end, label, label_dx=0.55)
+
+
+def _draw_arrow(ax, start, end, label=None, label_dx=0.0):
     arrow = FancyArrowPatch(
         start,
         end,
-        arrowstyle=style,
-        connectionstyle="arc3,rad=0.0",
-        mutation_scale=16,
+        arrowstyle="-|>",
+        mutation_scale=15,
         linewidth=1.4,
         color="#555555",
-        shrinkA=18,
-        shrinkB=18,
     )
     ax.add_patch(arrow)
     if label:
         mx, my = (start[0] + end[0]) / 2, (start[1] + end[1]) / 2
-        ax.text(mx, my + 0.15, label, ha="center", va="bottom", fontsize=7.5, color="#333333")
+        ax.text(mx + label_dx, my, label, ha="left", va="center", fontsize=7, color="#333333")
 
 
 def build() -> None:
-    fig, ax = plt.subplots(figsize=(14, 8))
-    ax.set_xlim(0, 14)
-    ax.set_ylim(0, 8)
+    fig, ax = plt.subplots(figsize=(13, 9))
+    ax.set_xlim(-0.3, 13.0)
+    ax.set_ylim(0.8, 10.3)
     ax.axis("off")
 
-    # Row 1: data + EDA
-    uci = _box(ax, (0.3, 6.3), 1.9, 1.0, "UCI Heart\nDisease\n(4 sites)", COLORS["data"])
-    clean = _box(ax, (2.6, 6.3), 1.9, 1.0, "download.py\nclean.py", COLORS["data"])
-    eda = _box(ax, (4.9, 6.3), 1.9, 1.0, "EDA notebook\n+ figures", COLORS["data"])
+    pitch = BOX_W + 0.35  # horizontal distance between adjacent box left-edges in a row
+    row_pitch = BOX_H + 1.1  # vertical distance between row baselines
 
-    # Row 1 cont: features + train
-    features = _box(ax, (7.2, 6.3), 1.9, 1.0, "Feature\npipeline\n(preprocess.py)", COLORS["train"])
-    train = _box(ax, (9.5, 6.3), 2.0, 1.0, "Tune + select\n3 models\n(train.py)", COLORS["train"])
+    row1_y = 9.0
+    row2_y = row1_y - row_pitch
+    row3_y = row2_y - row_pitch
+    row4_y = row3_y - row_pitch
 
-    _arrow(ax, uci, clean)
-    _arrow(ax, clean, eda)
-    _arrow(ax, eda, features)
-    _arrow(ax, features, train)
+    # --- Row 1: data -> EDA -> features -> train, then branch to MLflow ---
+    x = 0.2
+    uci = _box(ax, x, row1_y, "UCI Heart\nDisease (4 sites)", COLORS["data"])
+    _arrow_right(ax, uci)
+    x += pitch
+    clean = _box(ax, x, row1_y, "download.py\nclean.py", COLORS["data"])
+    _arrow_right(ax, clean)
+    x += pitch
+    eda = _box(ax, x, row1_y, "EDA notebook\n+ figures", COLORS["data"])
+    _arrow_right(ax, eda)
+    x += pitch
+    features = _box(ax, x, row1_y, "Feature pipeline\n(preprocess.py)", COLORS["train"])
+    _arrow_right(ax, features)
+    x += pitch
+    train_x = x
+    train = _box(ax, x, row1_y, "Tune + select\n3 models\n(train.py)", COLORS["train"])
+    _arrow_right(ax, train)
+    x += pitch
+    _box(ax, x, row1_y, "MLflow tracking\n+ registry\n(champion alias)", COLORS["track"])
 
-    # Row 2: MLflow + packaging
-    mlflow_box = _box(
-        ax, (9.5, 4.6), 2.0, 1.0, "MLflow tracking\n+ registry\n(champion alias)", COLORS["track"]
-    )
+    # --- Row 1 -> Row 2: train also feeds the packaged model, straight down ---
+    _arrow_down(ax, train, label="same fitted\npipeline (D5.2)")
     packaged = _box(
-        ax, (7.2, 4.6), 1.9, 1.0, "Packaged model\n(joblib +\nmetadata.json)", COLORS["track"]
+        ax, train_x, row2_y, "Packaged model\n(joblib +\nmetadata.json)", COLORS["track"]
     )
 
-    _arrow(ax, train, mlflow_box)
-    _arrow(ax, train, packaged, label="same fitted\npipeline, D5.2")
+    # --- Row 2: packaged model -> CI/CD -> Docker, flowing right to left ---
+    _arrow_left(ax, packaged, label="commit\ntriggers")
+    ci_x = train_x - pitch
+    ci = _box(ax, ci_x, row2_y, "CI/CD\n(lint/test/\ntrain/docker)", COLORS["cicd"])
+    _arrow_left(ax, ci, label="build +\nsmoke test")
+    docker_x = ci_x - pitch
+    docker = _box(ax, docker_x, row2_y, "Docker image\n(heart-mlops-api)", COLORS["cicd"])
 
-    # Row 3: CI/CD + Docker
-    ci = _box(ax, (9.5, 2.9), 2.0, 1.0, "CI/CD\n(lint/test/\ntrain/docker)", COLORS["cicd"])
-    docker = _box(ax, (7.2, 2.9), 1.9, 1.0, "Docker image\n(heart-mlops-api)", COLORS["cicd"])
-
-    _arrow(ax, packaged, ci, label="commits trigger")
-    _arrow(ax, ci, docker, label="build + smoke test")
-
-    # Row 4: Minikube serving
+    # --- Row 2 -> Row 3: docker image -> ingress, straight down ---
+    _arrow_down(ax, docker, label="minikube\nimage load")
     ingress = _box(
-        ax, (4.9, 1.2), 1.9, 1.0, "Ingress /\nLoadBalancer\n(heart-api.local)", COLORS["serve"]
+        ax, docker_x, row3_y, "Ingress /\nLoadBalancer\n(heart-api.local)", COLORS["serve"]
     )
-    pods = _box(ax, (2.6, 1.2), 1.9, 1.0, "API pods x2\n(FastAPI,\nHPA 2-5)", COLORS["serve"])
 
-    _arrow(ax, docker, ingress, label="minikube image load")
-    _arrow(ax, ingress, pods)
+    # --- Row 3: ingress -> API pods, left to right ---
+    _arrow_right(ax, ingress)
+    pods_x = docker_x + pitch
+    pods = _box(ax, pods_x, row3_y, "API pods x2\n(FastAPI,\nHPA 2-5)", COLORS["serve"])
 
-    # Monitoring branch
-    prometheus = _box(ax, (0.3, 1.2), 1.9, 1.0, "Prometheus\n(pod scrape)", COLORS["monitor"])
-    grafana = _box(ax, (0.3, 0.0), 1.9, 1.0, "Grafana\n(provisioned\ndashboard)", COLORS["monitor"])
+    # --- Row 3 -> Row 4: API pods -> Prometheus -> Grafana ---
+    _arrow_down(ax, pods, label="/metrics")
+    prometheus = _box(ax, pods_x, row4_y, "Prometheus\n(pod scrape)", COLORS["monitor"])
+    _arrow_right(ax, prometheus)
+    grafana_x = pods_x + pitch
+    _box(ax, grafana_x, row4_y, "Grafana\n(provisioned\ndashboard)", COLORS["monitor"])
 
-    _arrow(ax, pods, prometheus, label="/metrics")
-    _arrow(ax, prometheus, grafana)
-
-    # Legend
     legend_patches = [
         mpatches.Patch(color=COLORS["data"], label="Data & EDA (Phase 2)"),
         mpatches.Patch(color=COLORS["train"], label="Features & modelling (Phase 3)"),
@@ -137,8 +175,8 @@ def build() -> None:
     ]
     ax.legend(
         handles=legend_patches,
-        loc="lower center",
-        bbox_to_anchor=(0.5, -0.08),
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.08),
         ncol=3,
         frameon=False,
         fontsize=8.5,
@@ -148,7 +186,7 @@ def build() -> None:
         "Heart Disease Risk Prediction — End-to-End Architecture",
         fontsize=14,
         fontweight="bold",
-        pad=14,
+        pad=10,
     )
 
     fig.tight_layout()

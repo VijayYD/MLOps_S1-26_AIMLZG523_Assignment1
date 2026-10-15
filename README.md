@@ -19,7 +19,9 @@ written report is [`reports/MLOps_Assignment1_Report.docx`](reports/MLOps_Assign
 
 ![Architecture diagram](reports/figures/architecture.png)
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the walk-through.
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the walk-through, or
+[`SETUP_GUIDE.md`](SETUP_GUIDE.md) for a complete, copy-pasteable, step-by-step
+walkthrough of every command in this project from a fresh clone onward.
 
 ## Repository map
 

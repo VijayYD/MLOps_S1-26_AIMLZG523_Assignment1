@@ -549,3 +549,24 @@ correctly *skipped* rather than running, since both depend on `test`
 succeeding first. Closed the PR without merging and deleted the branch
 (confirmed gone on GitHub via the API, and pruned locally); `main`'s own
 test suite re-run afterward, unaffected, still 68 passed at 93% coverage.
+
+### D9.4 — Added a standalone, OS-agnostic SETUP_GUIDE.md; redrew the architecture diagram as a strict grid
+Added `SETUP_GUIDE.md` as a second, self-contained walkthrough alongside
+`LAB_RUNBOOK.md`, written so it never names a specific machine or lab --
+every command, prerequisite, and troubleshooting note is phrased
+generically (e.g. "a Python 3.12.x/3.13.x interpreter" rather than "3.13.x
+on macOS / 3.12.x on Linux") so it stands on its own for someone cloning
+the repository on an unknown machine, with no assumed context from this
+project's own development environment. `LAB_RUNBOOK.md` is kept as-is for
+its original audience; the two files serve different readers rather than
+one replacing the other.
+
+Separately, redrew `reports/build_architecture_diagram.py`: the original
+layout placed boxes in a zigzag with diagonal `FancyArrowPatch` connectors,
+which visually crossed through or near unrelated boxes and made the data
+flow hard to follow at a glance. Replaced it with a strict grid where every
+arrow is constrained to be purely horizontal (same row) or purely vertical
+(same column) -- a boustrophedon (snake) row layout -- so no arrow can ever
+cross another box by construction. Regenerated
+`reports/MLOps_Assignment1_Report.docx` afterward so the corrected diagram
+is embedded in the report, not just the standalone PNG.
