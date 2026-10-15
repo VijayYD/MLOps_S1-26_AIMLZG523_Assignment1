@@ -15,7 +15,7 @@ Usage:
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -666,6 +666,13 @@ def main() -> None:
     summary_df = pd.read_csv(DATA_PROCESSED_DIR / "data_quality_summary.csv")
 
     document = Document()
+    core_props = document.core_properties
+    core_props.author = "Vijay YD"
+    core_props.last_modified_by = "Vijay YD"
+    core_props.created = datetime.now()
+    core_props.modified = datetime.now()
+    core_props.title = "Heart Disease Risk Prediction -- MLOps Assignment 1 Report"
+    core_props.comments = ""
     style = document.styles["Normal"]
     style.font.size = Pt(11)
 
