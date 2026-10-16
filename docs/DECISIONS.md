@@ -562,6 +562,26 @@ sourced the lib. Fixed both docs to `source scripts/_k8s_lib.sh` first
 PATH) before using `${KUBECTL}`, and added this to both troubleshooting
 sections' existing "`kubectl: command not found`" entry.
 
+### D7.13 — Documented that changing `GRAFANA_ADMIN_PASSWORD` in `.env` requires both a redeploy and a pod restart
+Hit this directly in the lab: changed `GRAFANA_ADMIN_PASSWORD` in `.env`
+and Grafana still rejected it with "invalid username or password".
+`.env` is only ever read by `scripts/k8s_deploy.sh`, which writes it
+into the `grafana-admin` Secret -- editing the file has no effect on an
+already-running cluster by itself. Separately, even after the Secret is
+updated, Kubernetes does not restart a pod just because a Secret it
+references changed, so the already-running Grafana container keeps
+using whatever `GF_SECURITY_ADMIN_PASSWORD` value it started with.
+Confirmed `k8s/monitoring/grafana-deployment.yaml` has no
+`PersistentVolume` for Grafana's own data (only the read-only
+provisioning ConfigMaps are mounted), so a pod restart fully
+reinitializes Grafana rather than keeping a stale admin user from a
+previous boot -- meaning `scripts/k8s_deploy.sh` (re-applies the
+Secret) followed by `kubectl -n heart-mlops rollout restart
+deployment/grafana` is sufficient, no manual Grafana admin-reset
+command needed. Added this exact sequence to both runbooks'
+troubleshooting sections, since the previous docs only described the
+first-time setup, not what changing the password later requires.
+
 ## Phase 8 — Lab-parity verification
 
 ### D8.1 — `git archive HEAD`, not a file copy, for the lab-parity container

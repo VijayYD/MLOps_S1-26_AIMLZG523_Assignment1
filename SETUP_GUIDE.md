@@ -407,6 +407,21 @@ missing shows as a clearly labelled placeholder instead.
   command typed directly in a terminal (e.g. the monitoring
   port-forwards above), `source scripts/_k8s_lib.sh` first and use
   `${KUBECTL}` instead of typing `kubectl` directly.
+- **Grafana rejects the password you just set in `.env`**: editing
+  `.env` alone changes nothing already running — `GRAFANA_ADMIN_PASSWORD`
+  is only read into a Kubernetes Secret when `scripts/k8s_deploy.sh`
+  runs, and the Grafana pod only applies a changed Secret when it
+  actually restarts (Kubernetes doesn't do this automatically on a
+  Secret change). Re-run `bash scripts/k8s_deploy.sh` to update the
+  Secret, then force a restart so Grafana re-initializes with it:
+  ```bash
+  source scripts/_k8s_lib.sh
+  ${KUBECTL} -n heart-mlops rollout restart deployment/grafana
+  ${KUBECTL} -n heart-mlops rollout status deployment/grafana --timeout=120s
+  ```
+  (Grafana has no persistent volume here, so the restart cleanly
+  reinitializes it with the new password rather than keeping the old
+  one from its previous internal state.)
 - **A restricted network blocks the UCI dataset or Docker Hub**: set the
   usual `HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY` environment variables
   before running any command — nothing here hard-codes a direct

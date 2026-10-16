@@ -179,6 +179,20 @@ setup differs subtly from what `check_env.sh` reports.
   standalone command typed directly in a terminal (e.g. the monitoring
   port-forwards above), `source scripts/_k8s_lib.sh` first and use
   `${KUBECTL}` instead of typing `kubectl` directly.
+- **Grafana rejects the password you just set in `.env`**: editing
+  `.env` alone changes nothing already running — `GRAFANA_ADMIN_PASSWORD`
+  is only read into a Kubernetes Secret when `scripts/k8s_deploy.sh`
+  runs, and the Grafana pod only applies a changed Secret when it
+  actually restarts (Kubernetes doesn't do this automatically). Re-run
+  `bash scripts/k8s_deploy.sh` to update the Secret, then force a
+  restart so Grafana re-initializes with it:
+  ```bash
+  source scripts/_k8s_lib.sh
+  ${KUBECTL} -n heart-mlops rollout restart deployment/grafana
+  ${KUBECTL} -n heart-mlops rollout status deployment/grafana --timeout=120s
+  ```
+  (No persistent volume here, so the restart cleanly reinitializes
+  Grafana with the new password instead of keeping the old one.)
 - **Port already in use** (8000/5001/9090/3000), e.g. `docker compose`
   failing with `address already in use`: `scripts/check_env.sh` reports
   which ports are busy before you start; check `docker ps -a` for a
