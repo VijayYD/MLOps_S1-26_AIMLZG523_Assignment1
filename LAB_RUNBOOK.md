@@ -107,9 +107,20 @@ automatically falls back to `kubectl port-forward` if there isn't one,
 so it works correctly either way — no `sudo` needed on either path
 (`docs/DECISIONS.md` D7.11).
 
+`make load-test` sends requests to `http://127.0.0.1:8000` by default,
+which only works once something is forwarding that port to the cluster —
+port-forward the API's LoadBalancer Service there first (its own
+terminal), then run the load test in another terminal:
+
 ```bash
+source scripts/_k8s_lib.sh
+${KUBECTL} -n heart-mlops port-forward svc/heart-api-lb 8000:8000 &
 make load-test    # small concurrent traffic generator, so Grafana has real data
 ```
+
+Skipping the port-forward means every request silently fails to
+connect, so the monitoring dashboards stay empty even though the script
+prints "Done." without an obvious error.
 
 ### Monitoring
 

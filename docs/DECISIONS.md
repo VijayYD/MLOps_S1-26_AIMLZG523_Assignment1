@@ -582,6 +582,36 @@ command needed. Added this exact sequence to both runbooks'
 troubleshooting sections, since the previous docs only described the
 first-time setup, not what changing the password later requires.
 
+### D7.14 — `load_test.sh`'s default `BASE_URL` silently failed against the Kubernetes deployment; added a preflight check
+Hit this directly in the lab: ran `make load-test` after a Kubernetes
+deploy, it printed "Done." with no visible error, and Grafana stayed
+completely empty. Root cause: `scripts/load_test.sh` defaults
+`BASE_URL` to `http://127.0.0.1:8000`, which is correct for
+docker-compose (D7.6 verified real Grafana data that way) and a local
+`uvicorn` run, but nothing listens on that host port for a Kubernetes
+deployment unless the API (or its LoadBalancer Service) is separately
+port-forwarded there first -- a step neither runbook's documented
+`k8s-deploy` -> `k8s-verify` -> `load-test` sequence included.
+Every request failed to connect; the script's `curl` calls aren't run
+with `-f`, so a connection failure just produces an http_code of `000`
+that gets silently tallied by `sort | uniq -c` like any other status
+code, and the script still exits 0 and prints "Done." -- no real
+traffic ever reached the API, so Prometheus had nothing new to scrape
+and Grafana's panels stayed empty. This exact gap was never caught
+earlier because D8.2's dry run verified the Kubernetes Ingress/
+LoadBalancer paths and D7.6 verified Grafana against docker-compose,
+but no prior check ran `load_test.sh` against the Kubernetes deployment
+specifically.
+Fixed two ways: (1) added a preflight `curl -fsS .../health` check to
+`load_test.sh` that fails loudly with exit 1 and a clear port-forward
+hint instead of silently sending doomed requests -- verified both
+failure (unreachable URL, real non-zero exit) and success (a real local
+`uvicorn` instance, 20/20 real `200`s) paths by actually running the
+script, not just reading it; (2) updated both runbooks' "Generate
+traffic and view monitoring" sections to port-forward
+`svc/heart-api-lb` to `8000:8000` before calling `make load-test` for
+the Kubernetes case.
+
 ## Phase 8 — Lab-parity verification
 
 ### D8.1 — `git archive HEAD`, not a file copy, for the lab-parity container

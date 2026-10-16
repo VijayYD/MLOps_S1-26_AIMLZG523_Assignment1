@@ -291,14 +291,28 @@ forwarding instead — no manual configuration needed either way.
 
 ### Generate traffic and view monitoring
 
+`make load-test` sends requests to `http://127.0.0.1:8000` by default —
+that only works once something is actually forwarding that port to the
+cluster, so port-forward the API's LoadBalancer Service there first, in
+its own terminal:
+
+```bash
+source scripts/_k8s_lib.sh
+${KUBECTL} -n heart-mlops port-forward svc/heart-api-lb 8000:8000
+```
+
+Then, in another terminal:
+
 ```bash
 make load-test
 ```
 
-Sends a short burst of real requests so the monitoring dashboards have
-something to show. Then, in separate terminals (each one needs the
-`source` line, since it's what resolves `kubectl` even when it isn't
-installed — falling back to `minikube kubectl --` automatically):
+This sends a short burst of real requests so the monitoring dashboards
+have something to show — if you skip the port-forward above, every
+request silently fails to connect and nothing reaches the API, so the
+dashboards stay empty. Then, in further separate terminals (each one
+needs the `source` line, since it's what resolves `kubectl` even when it
+isn't installed — falling back to `minikube kubectl --` automatically):
 
 ```bash
 source scripts/_k8s_lib.sh
