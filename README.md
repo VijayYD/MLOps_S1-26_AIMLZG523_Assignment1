@@ -209,12 +209,17 @@ code), composed together by `k8s/overlays/minikube/`.
 
 The Grafana admin password comes from a Secret `k8s_deploy.sh` generates
 from `.env`'s `GRAFANA_ADMIN_PASSWORD` — never committed. On macOS,
-`k8s_verify.sh` reaches the Ingress and LoadBalancer via
-`kubectl port-forward` rather than `minikube tunnel`, because the
-Ingress's privileged ports (80/443) need an interactive `sudo` password
-that an unattended script can't supply — and the lab disallows `sudo`
-entirely anyway (`docs/DECISIONS.md` D7.7). On Linux, `minikube ip` is
-directly reachable, so neither tunnel nor port-forward is needed.
+`k8s_verify.sh` reaches the Ingress via `kubectl port-forward` rather
+than `minikube tunnel`, because the Ingress's privileged ports (80/443)
+need an interactive `sudo` password that an unattended script can't
+supply — and the lab disallows `sudo` entirely anyway
+(`docs/DECISIONS.md` D7.7). On Linux, `minikube ip` is directly reachable
+for the Ingress, so no tunnel or port-forward is needed there. The
+LoadBalancer Service is different on every OS: it only gets a real
+external IP once `minikube tunnel` is actually running, so
+`k8s_verify.sh` checks for that first and falls back to
+`kubectl port-forward` automatically when it isn't running
+(`docs/DECISIONS.md` D7.11) — no `sudo` needed either way.
 
 ## Testing and CI
 

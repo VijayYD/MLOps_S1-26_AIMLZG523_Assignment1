@@ -517,6 +517,35 @@ docker/docker-compose.yml config` that the override substitutes
 correctly and the unset-case default (`8000`) is preserved exactly as
 before.
 
+### D7.11 — Fixed a real bug: `k8s_verify.sh` assumed the LoadBalancer Service was reachable at `minikube ip:8000` on Linux
+Hit this directly running `k8s_verify.sh` in the lab: `/health` and
+`/predict` through the Ingress both succeeded at `minikube ip`, but
+`/health` through the LoadBalancer failed with `curl: (7) Failed to
+connect ... Connection refused` on the same IP, port 8000.
+Root cause: `k8s/base/service-lb.yaml`'s own header comment claimed the
+Service was "usable ... directly via `minikube ip` (Linux)", and
+`k8s_verify.sh`'s Linux branch was written to match that claim -- but
+it's wrong. A plain `type: LoadBalancer` Service only gets a real
+external IP (`status.loadBalancer.ingress[0].ip`) once `minikube tunnel`
+is actually running; that's a property of how LoadBalancer Services
+work in Kubernetes, not something minikube's Linux/Docker-driver
+combination special-cases the way it does for the `ingress` addon
+(which *is* genuinely reachable at `minikube ip` directly on Linux,
+unrelated to this bug). This specific code path was never actually
+exercised during D8.2's dry run, because that ran on macOS, where the
+script always port-forwards *both* Ingress and LoadBalancer regardless
+-- so the untested Linux-only assumption sat in the repo, documented as
+if verified, until the real lab run hit it.
+Fixed `k8s_verify.sh` to treat the LoadBalancer check the same way on
+every OS: check for an assigned external IP first, and automatically
+fall back to `kubectl port-forward` if there isn't one (`minikube
+tunnel` not running), rather than ever assuming the node IP works
+directly. No `sudo` needed on either path, since the LoadBalancer's
+port (8000) isn't privileged (D7.7's sudo concern was specific to
+Ingress's 80/443). Corrected the misleading comment in
+`k8s/base/service-lb.yaml` and the same stale claim in `README.md` and
+`LAB_RUNBOOK.md` to match.
+
 ## Phase 8 — Lab-parity verification
 
 ### D8.1 — `git archive HEAD`, not a file copy, for the lab-parity container

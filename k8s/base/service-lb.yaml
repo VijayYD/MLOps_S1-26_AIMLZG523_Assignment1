@@ -1,4 +1,5 @@
-# Usable with `minikube tunnel` (macOS) or directly via `minikube ip` (Linux).
+# Gets a real external IP once `minikube tunnel` is running (any OS);
+# scripts/k8s_verify.sh falls back to `kubectl port-forward` otherwise.
 apiVersion: v1
 kind: Service
 metadata:

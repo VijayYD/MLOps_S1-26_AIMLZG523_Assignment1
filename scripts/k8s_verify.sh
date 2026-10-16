@@ -2,15 +2,23 @@
 # Prints cluster state, then calls /health and /predict through BOTH the
 # Ingress and the LoadBalancer Service.
 #
-# macOS + Docker driver: minikube ip is not routable from the host, and
-# `minikube tunnel` needs sudo for the Ingress's privileged ports (80/443)
-# -- which needs an interactive password prompt, and the lab explicitly
-# forbids sudo anyway (see the project brief). So this uses
-# `kubectl port-forward` to arbitrary unprivileged local ports for both
-# Ingress and LoadBalancer on macOS instead -- same verification, no sudo,
-# works unattended. See docs/DECISIONS.md D7.x for the full reasoning.
-# Linux: minikube ip is directly reachable, so no tunnel/port-forward is
-# needed there at all.
+# Ingress: macOS + Docker driver: minikube ip is not routable from the
+# host at all, so this uses `kubectl port-forward` to an arbitrary
+# unprivileged local port instead of `minikube tunnel` (which also needs
+# sudo for the Ingress's privileged ports 80/443 -- an interactive
+# password prompt an unattended script can't supply, and the lab
+# explicitly forbids sudo anyway). Linux: minikube's `ingress` addon is
+# directly reachable at `minikube ip` there, no tunnel/port-forward
+# needed. See docs/DECISIONS.md D7.7.
+#
+# LoadBalancer (heart-api-lb): a plain `type: LoadBalancer` Service is
+# NOT reachable at `minikube ip:8000` on any OS unless `minikube tunnel`
+# is actually running to assign it a real external IP (status.loadBalancer
+# .ingress[0].ip) -- that's a property of how LoadBalancer Services work,
+# not something specific to macOS. So on every OS, this checks for an
+# assigned external IP first and only falls back to `kubectl
+# port-forward` if one isn't there (tunnel not running) -- never assumes
+# the node IP works directly. See docs/DECISIONS.md D7.11.
 #
 # Reaches the Ingress with a Host header rather than editing /etc/hosts.
 set -euo pipefail
@@ -37,26 +45,36 @@ trap cleanup EXIT
   OS="$(uname -s)"
   if [ "$OS" = "Darwin" ]; then
     echo
-    echo "macOS detected: port-forwarding the Ingress controller and the"
-    echo "LoadBalancer Service to local ports instead of 'minikube tunnel'"
-    echo "(which would need an interactive sudo password for Ingress's"
-    echo "privileged ports -- not available from an unattended script, and"
-    echo "the lab environment disallows sudo entirely)."
+    echo "macOS detected: port-forwarding the Ingress controller to a local"
+    echo "port instead of 'minikube tunnel' (which would need an"
+    echo "interactive sudo password for Ingress's privileged ports -- not"
+    echo "available from an unattended script, and the lab environment"
+    echo "disallows sudo entirely)."
     ${KUBECTL} port-forward -n ingress-nginx svc/ingress-nginx-controller 18080:80 \
       >/tmp/heart_mlops_pf_ingress.log 2>&1 &
     INGRESS_PF_PID=$!
+    sleep 3
+    INGRESS_URL="http://127.0.0.1:18080"
+  else
+    INGRESS_URL="http://$(minikube ip)"
+  fi
+
+  # A `type: LoadBalancer` Service only gets a real external IP once
+  # `minikube tunnel` is actually running (in another terminal) -- on
+  # every OS, not just macOS. If it hasn't been assigned one, fall back
+  # to port-forward rather than guessing the node IP works directly.
+  LB_IP="$(${KUBECTL} -n heart-mlops get svc heart-api-lb -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)"
+  if [ -n "$LB_IP" ]; then
+    LB_URL="http://${LB_IP}:8000"
+  else
+    echo
+    echo "heart-api-lb has no external IP yet ('minikube tunnel' not"
+    echo "running) -- port-forwarding it to a local port instead."
     ${KUBECTL} port-forward -n heart-mlops svc/heart-api-lb 18089:8000 \
       >/tmp/heart_mlops_pf_lb.log 2>&1 &
     LB_PF_PID=$!
     sleep 3
-    INGRESS_URL="http://127.0.0.1:18080"
     LB_URL="http://127.0.0.1:18089"
-  else
-    INGRESS_IP="$(minikube ip)"
-    LB_IP="$(${KUBECTL} -n heart-mlops get svc heart-api-lb -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)"
-    [ -z "$LB_IP" ] && LB_IP="$INGRESS_IP"
-    INGRESS_URL="http://${INGRESS_IP}"
-    LB_URL="http://${LB_IP}:8000"
   fi
 
   echo

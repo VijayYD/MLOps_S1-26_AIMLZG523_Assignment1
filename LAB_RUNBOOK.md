@@ -92,11 +92,20 @@ Prints `kubectl get pods,svc,ingress,hpa -n heart-mlops`, then calls
 `/health` and `/predict` through **both** the Ingress (host
 `heart-api.local`, reached with a `Host:` header — never editing
 `/etc/hosts`) and the LoadBalancer Service. **On Linux (the lab),
-`minikube ip` is directly reachable**, so this needs no tunnel and no
-`sudo` at all. (On macOS, the same script uses `kubectl port-forward`
-instead of `minikube tunnel`, specifically to avoid the interactive
-`sudo` password `minikube tunnel` would need for the Ingress's privileged
-ports — see `docs/DECISIONS.md` D7.7. Either way: no `sudo`.)
+`minikube ip` is directly reachable for the Ingress** (minikube's
+`ingress` addon routes there directly), so that part needs no tunnel and
+no `sudo`. (On macOS, the same script uses `kubectl port-forward` for the
+Ingress instead of `minikube tunnel`, specifically to avoid the
+interactive `sudo` password `minikube tunnel` would need for the
+Ingress's privileged ports — see `docs/DECISIONS.md` D7.7.)
+
+The **LoadBalancer Service** (`heart-api-lb`) is different: a plain
+`type: LoadBalancer` Service only gets a real external IP once `minikube
+tunnel` is actually running — that's true on every OS, not just macOS.
+`k8s_verify.sh` checks for an assigned external IP first and
+automatically falls back to `kubectl port-forward` if there isn't one,
+so it works correctly either way — no `sudo` needed on either path
+(`docs/DECISIONS.md` D7.11).
 
 ```bash
 make load-test    # small concurrent traffic generator, so Grafana has real data
