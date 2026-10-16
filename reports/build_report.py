@@ -31,8 +31,10 @@ from heart_mlops.models.registry import METADATA_PATH
 REPO_URL = "https://github.com/VijayYD/MLOps_S1-26_AIMLZG523_Assignment1"
 COURSE_TITLE = "Machine Learning Operations (AIMLCZG523) — Assignment 1"
 PROJECT_TITLE = "Heart Disease Risk Prediction: An End-to-End MLOps Pipeline"
+STUDENT_NAME = "YELDONA DESAI V VITTAL"
+STUDENT_ID = "2025AE05316"
 SCREENSHOTS_DIR = PROJECT_ROOT / "screenshots"
-OUTPUT_PATH = PROJECT_ROOT / "reports" / "MLOps_Assignment1_Report.docx"
+OUTPUT_PATH = PROJECT_ROOT / "reports" / f"{STUDENT_ID}_MLOps_Assignment1_Report.docx"
 
 _counters = {"figure": 0, "table": 0}
 
@@ -140,7 +142,7 @@ def build_cover_page(document: Document) -> None:
     run.font.size = Pt(20)
 
     document.add_paragraph()
-    for label in ["STUDENT NAME: ____________________", "STUDENT ID: ____________________"]:
+    for label in [f"STUDENT NAME: {STUDENT_NAME}", f"STUDENT ID: {STUDENT_ID}"]:
         p = document.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         r = p.add_run(label)
@@ -558,18 +560,21 @@ def build_kubernetes(document: Document) -> None:
     document.add_paragraph(
         "scripts/k8s_verify.sh checks pod/service/ingress/HPA state and then calls /health and "
         "/predict through both the Ingress (reached with a Host header, never by editing "
-        "/etc/hosts) and the LoadBalancer Service. On macOS, this uses kubectl port-forward rather "
-        "than minikube tunnel: the Ingress's privileged ports (80/443) need an interactive sudo "
-        "password that an unattended script cannot supply, and the lab disallows sudo entirely in "
-        "any case — the port-forward approach was verified to work identically for both paths, "
-        "with no loss of coverage. On Linux, minikube ip is directly reachable, so neither tunnel "
-        "nor port-forward is needed there."
+        "/etc/hosts) and the LoadBalancer Service. The Ingress is reachable directly at minikube ip "
+        "on Linux (minikube's ingress addon routes there natively); on macOS it falls back to "
+        "kubectl port-forward instead of minikube tunnel, since the Ingress's privileged ports "
+        "(80/443) need an interactive sudo password that an unattended script cannot supply, and "
+        "the lab disallows sudo entirely in any case. The LoadBalancer Service is different on "
+        "every OS: a plain type: LoadBalancer Service only gets a real external IP once minikube "
+        "tunnel is actually running, so the script checks for an assigned external IP first and "
+        "automatically falls back to kubectl port-forward if there isn't one — no sudo needed "
+        "either way."
     )
     add_screenshot_or_placeholder(
-        document, "09_kubectl_get.png", "kubectl get pods, services, ingress, HPA"
-    )
-    add_screenshot_or_placeholder(
-        document, "10_predict_ingress_lb.png", "/predict via Ingress and LoadBalancer"
+        document,
+        "09_kubectl_get.png",
+        "kubectl get pods, services, ingress, HPA, and /predict verified through both "
+        "the Ingress and the LoadBalancer",
     )
 
 
@@ -667,8 +672,8 @@ def main() -> None:
 
     document = Document()
     core_props = document.core_properties
-    core_props.author = "Vijay YD"
-    core_props.last_modified_by = "Vijay YD"
+    core_props.author = STUDENT_NAME
+    core_props.last_modified_by = STUDENT_NAME
     core_props.created = datetime.now()
     core_props.modified = datetime.now()
     core_props.title = "Heart Disease Risk Prediction -- MLOps Assignment 1 Report"
@@ -709,7 +714,6 @@ def main() -> None:
         "07_docker_smoke.png",
         "08_docker_inspect.png",
         "09_kubectl_get.png",
-        "10_predict_ingress_lb.png",
         "11_swagger_docs.png",
         "12_prometheus_targets.png",
         "13_grafana_dashboard.png",
