@@ -612,6 +612,37 @@ traffic and view monitoring" sections to port-forward
 `svc/heart-api-lb` to `8000:8000` before calling `make load-test` for
 the Kubernetes case.
 
+### D7.15 — Pinned the provisioned Grafana datasource's `uid` explicitly, since the dashboard JSON hard-codes it
+Hit this directly in the lab: real traffic confirmed reaching the API
+(live `200`s from `curl`), Prometheus confirmed scraping both `heart-api`
+pods (`2/2 up`) and confirmed to actually hold the metric
+(`http_requests_total` returned real rows, `sum(rate(...))` nonzero when
+queried directly in Prometheus's own `/graph` page) -- yet Grafana's
+dashboard panels still rendered a flat line. Root cause: every panel in
+`monitoring/grafana/dashboards/heart_api.json` references its datasource
+as `{"type": "prometheus", "uid": "Prometheus"}`, but
+`monitoring/grafana/provisioning/datasources/datasource.yaml` (and its
+Kubernetes copy, `k8s/monitoring/grafana-datasources-configmap.yaml`)
+never set an explicit `uid:` field -- so Grafana auto-generated a random
+one (confirmed via `GET /api/datasources`: the real uid was
+`PBFA97CFB590B2093`, not `"Prometheus"`). Every panel was therefore
+referencing a datasource UID that didn't exist. This likely rendered
+correctly only intermittently because the datasource is also marked
+`isDefault: true`, and some Grafana code paths silently fall back to the
+default datasource when a referenced UID can't be resolved -- which
+explains why one earlier burst test happened to show a real spike while
+a later, otherwise-identical test showed nothing: never a reliable
+signal either way, just an implementation-detail fallback that isn't
+guaranteed.
+Fixed by adding `uid: Prometheus` explicitly to both provisioning files,
+so the datasource is always created with the exact UID every panel
+already expects -- removing any dependency on undocumented
+default-datasource fallback behavior. Because Grafana has no persistent
+volume here (D7.13), the fix takes effect on the next pod restart with
+no manual re-pointing of panels needed: `kubectl -n heart-mlops rollout
+restart deployment/grafana` re-provisions the datasource fresh with the
+pinned UID.
+
 ## Phase 8 — Lab-parity verification
 
 ### D8.1 — `git archive HEAD`, not a file copy, for the lab-parity container
