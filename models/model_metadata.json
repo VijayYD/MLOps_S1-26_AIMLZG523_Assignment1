@@ -1,7 +1,7 @@
 {
   "model_name": "logreg",
-  "model_version": 3,
-  "threshold": 0.24173470986674506,
+  "model_version": 2,
+  "threshold": 0.2418610708312065,
   "hyperparameters": {
     "classifier__C": 0.9163741808778786,
     "classifier__class_weight": null,
@@ -33,12 +33,12 @@
     "f1": 0.8448275862068966,
     "roc_auc": 0.9038737446197991,
     "pr_auc": 0.9147582340917307,
-    "brier": 0.12003471225177618,
-    "threshold": 0.24173470986674506
+    "brier": 0.1200347122517763,
+    "threshold": 0.2418610708312065
   },
   "training_data_checksum": "c1bdd6e8cfc998046cc41f3fd24b181087a7c60f4abb2e11d8188422d68cbe8b",
   "sklearn_version": "1.5.2",
-  "git_sha": "1729e800d9ad8c00184663fb479de488bd2a8e07",
+  "git_sha": "fcd0044439a070b3f210ac5b07b29d8a0b3b9ba0",
   "seed": 42,
-  "timestamp": "2026-10-14T05:00:56.606808+00:00"
+  "timestamp": "2026-10-16T11:44:37.544396+00:00"
 }

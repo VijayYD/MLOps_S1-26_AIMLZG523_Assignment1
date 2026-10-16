@@ -1,0 +1,26 @@
+=== kubectl get pods,svc,ingress,hpa -n heart-mlops ===
+NAME                             READY   STATUS    RESTARTS   AGE     IP            NODE       NOMINATED NODE   READINESS GATES
+pod/grafana-76c9dd6458-cs45l     1/1     Running   0          2m49s   10.244.0.9    minikube   <none>           <none>
+pod/heart-api-76454b4655-rkjsk   1/1     Running   0          2m49s   10.244.0.7    minikube   <none>           <none>
+pod/heart-api-76454b4655-xvlf5   1/1     Running   0          2m49s   10.244.0.10   minikube   <none>           <none>
+pod/prometheus-d5d7c9c4b-wngc2   1/1     Running   0          2m49s   10.244.0.8    minikube   <none>           <none>
+
+NAME                   TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE     SELECTOR
+service/grafana        ClusterIP      10.101.20.145    <none>        3000/TCP         2m50s   app=grafana
+service/heart-api      ClusterIP      10.102.213.128   <none>        80/TCP           2m50s   app=heart-api
+service/heart-api-lb   LoadBalancer   10.96.118.194    <pending>     8000:32039/TCP   2m50s   app=heart-api
+service/prometheus     ClusterIP      10.111.34.118    <none>        9090/TCP         2m50s   app=prometheus
+
+NAME                                          CLASS   HOSTS             ADDRESS        PORTS   AGE
+ingress.networking.k8s.io/heart-api-ingress   nginx   heart-api.local   192.168.49.2   80      2m49s
+
+NAME                                                REFERENCE              TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+horizontalpodautoscaler.autoscaling/heart-api-hpa   Deployment/heart-api   cpu: 5%/70%   2         5         2          2m49s
+
+=== /health via Ingress (Host: heart-api.local, http://192.168.49.2) ===
+{"status":"ok"}
+=== /predict via Ingress ===
+{"prediction":1,"label":"Disease","confidence":0.33357277521438994,"risk_probability":0.33357277521438994,"threshold":0.2418610708312065,"model_version":"2","request_id":"90bebe66-3849-4c88-88ee-14d26e059909"}
+
+=== /health via LoadBalancer (http://192.168.49.2:8000) ===
+curl: (7) Failed to connect to 192.168.49.2 port 8000: Connection refused
