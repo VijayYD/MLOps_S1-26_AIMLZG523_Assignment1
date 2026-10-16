@@ -776,10 +776,23 @@ alone reduced page count but did nothing for file size. Fixed by actually
 downsampling `reports/figures/*.png` (the notebook-generated charts) to
 900px wide via Pillow -- the same fix already applied to the manual
 screenshots (D-series size-reduction work) is now applied to every
-embedded image, not just half of them. Result: 20 -> 12 LibreOffice-rendered
-pages (expect roughly +1 once Word's TOC field actually resolves its 13+
-entries, since LibreOffice only shows the field's placeholder text, never
-rendering the real TOC content).
+embedded image, not just half of them. Got to 20 -> 12 LibreOffice-rendered
+pages this way.
+
+Went further on request: added `add_figure_grid()`, which lays a list of
+images out in an n-column borderless table instead of stacking them one
+per row -- same content, a fraction of the vertical space, since Word has
+no other built-in way to flow images side by side. Applied it everywhere
+two or more images appear together: the 6 EDA figures and the 6 modelling
+figures each collapsed from a near-full-page vertical stack to a 3x2 grid
+occupying roughly a third of a page, and every multi-screenshot section
+(experiment tracking, CI/CD, containerisation, monitoring) got the same
+treatment at 2 or 3 columns depending on count. A missing screenshot still
+renders as an in-cell placeholder rather than silently collapsing the
+grid's shape. Result: 20 -> 9 LibreOffice-rendered pages (expect roughly
++1 once Word's TOC field actually resolves its 13+ entries, since
+LibreOffice only shows the field's placeholder text, never rendering the
+real TOC content) -- landing right at the brief's ~10-page guidance.
 
 The video embed and both hyperlinks (GitHub, Google Drive backup) were
 added by hand in real Microsoft Word in a prior session -- python-docx has

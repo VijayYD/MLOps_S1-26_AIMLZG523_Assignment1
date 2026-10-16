@@ -146,6 +146,52 @@ def add_figure(document: Document, image_path: Path, caption: str, width_in: flo
     add_caption(document, "figure", caption)
 
 
+def add_figure_grid(
+    document: Document,
+    items: list[tuple[Path, str]],
+    n_cols: int,
+    width_in: float,
+) -> None:
+    """Lays images out in an n_cols-wide borderless table instead of
+    stacking them one per row -- the same total content in a fraction of
+    the vertical space. `items` is a list of (image_path, caption); a
+    missing path renders as an in-cell placeholder rather than being
+    silently skipped, so the grid shape stays predictable either way."""
+    if not items:
+        return
+    n_rows = -(-len(items) // n_cols)  # ceil division
+    table = document.add_table(rows=n_rows, cols=n_cols)
+    tbl_pr = table._tbl.tblPr
+    borders = OxmlElement("w:tblBorders")
+    for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        el = OxmlElement(f"w:{edge}")
+        el.set(qn("w:val"), "none")
+        el.set(qn("w:sz"), "0")
+        el.set(qn("w:space"), "0")
+        borders.append(el)
+    tbl_pr.append(borders)
+
+    for idx, (path, caption) in enumerate(items):
+        row, col = divmod(idx, n_cols)
+        cell = table.cell(row, col)
+        pic_p = cell.paragraphs[0]
+        pic_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        if path.exists():
+            pic_p.add_run().add_picture(str(path), width=Inches(width_in))
+        else:
+            placeholder_run = pic_p.add_run(f"[Insert: {path.name}]")
+            placeholder_run.italic = True
+            placeholder_run.font.color.rgb = RGBColor(0x80, 0x80, 0x80)
+
+        _counters["figure"] += 1
+        cap_p = cell.add_paragraph()
+        cap_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        cap_run = cap_p.add_run(f"Figure {_counters['figure']}: {caption}")
+        cap_run.italic = True
+        cap_run.font.size = Pt(7.5)
+    document.add_paragraph()
+
+
 def add_screenshot_or_placeholder(document: Document, filename: str, description: str) -> None:
     path = SCREENSHOTS_DIR / filename
     if path.exists():
@@ -332,20 +378,28 @@ def build_data_eda(document: Document, summary_df: pd.DataFrame) -> None:
         "prevalence swings from 36.2% (Hungarian) to 93.5% (Switzerland) — both motivate the "
         "site-aware modelling choices in Section 4."
     )
-    for fname, caption in [
-        ("01_missingness_heatmap.png", "Missing values by column and site."),
-        ("02_class_balance.png", "Overall and per-site class balance."),
-        ("03_numeric_distributions.png", "Numeric feature distributions by target (KDE)."),
-        ("04_categorical_counts.png", "Categorical feature counts by target."),
-        (
-            "05_correlation_heatmap_pearson.png",
-            "Pearson correlation among continuous features and target.",
-        ),
-        ("06_boxplots_by_site.png", "Site shift in key continuous features."),
-    ]:
-        path = REPORTS_FIGURES_DIR / fname
-        if path.exists():
-            add_figure(document, path, caption)
+    add_figure_grid(
+        document,
+        [
+            (REPORTS_FIGURES_DIR / "01_missingness_heatmap.png", "Missing values by column/site."),
+            (REPORTS_FIGURES_DIR / "02_class_balance.png", "Overall and per-site class balance."),
+            (
+                REPORTS_FIGURES_DIR / "03_numeric_distributions.png",
+                "Numeric feature distributions by target (KDE).",
+            ),
+            (
+                REPORTS_FIGURES_DIR / "04_categorical_counts.png",
+                "Categorical feature counts by target.",
+            ),
+            (
+                REPORTS_FIGURES_DIR / "05_correlation_heatmap_pearson.png",
+                "Pearson correlation, features and target.",
+            ),
+            (REPORTS_FIGURES_DIR / "06_boxplots_by_site.png", "Site shift in key features."),
+        ],
+        n_cols=3,
+        width_in=1.9,
+    )
 
 
 def build_modelling(
@@ -395,31 +449,25 @@ def build_modelling(
         f"approximately 1 (no effect), while 'ca = 0' carries the single largest coefficient — "
         f"evidence ca is used for genuine clinical signal, not as a hospital shortcut."
     )
-    # 07-10 are square (6x6 or 5x5 matplotlib figures) -- narrower here so
-    # two can share a page instead of each leaving a large blank gap below.
-    for fname, caption, width_in in [
-        ("07_roc_curves.png", "ROC curves for all three models on the hold-out set.", 2.1),
-        (
-            "08_pr_curves.png",
-            "Precision-Recall curves for all three models on the hold-out set.",
-            2.1,
-        ),
-        (
-            "09_confusion_matrix.png",
-            "Confusion matrix for the selected model at its operating threshold.",
-            2.1,
-        ),
-        ("10_calibration_curve.png", "Calibration curves for all three models.", 2.1),
-        (
-            "11_logreg_odds_ratios.png",
-            "Logistic Regression odds ratios (top 20 by |coefficient|).",
-            2.8,
-        ),
-        ("12_rf_importance.png", "Random Forest impurity-based and permutation importance.", 3.2),
-    ]:
-        path = REPORTS_FIGURES_DIR / fname
-        if path.exists():
-            add_figure(document, path, caption, width_in=width_in)
+    add_figure_grid(
+        document,
+        [
+            (REPORTS_FIGURES_DIR / "07_roc_curves.png", "ROC curves, all three models."),
+            (REPORTS_FIGURES_DIR / "08_pr_curves.png", "Precision-Recall curves, all three."),
+            (REPORTS_FIGURES_DIR / "09_confusion_matrix.png", "Confusion matrix, selected model."),
+            (REPORTS_FIGURES_DIR / "10_calibration_curve.png", "Calibration curves, all three."),
+            (
+                REPORTS_FIGURES_DIR / "11_logreg_odds_ratios.png",
+                "LogReg odds ratios (top 20 by |coef|).",
+            ),
+            (
+                REPORTS_FIGURES_DIR / "12_rf_importance.png",
+                "Random Forest importance (impurity + permutation).",
+            ),
+        ],
+        n_cols=3,
+        width_in=1.9,
+    )
 
     add_heading(document, "Leave-one-site-out generalisation", level=2)
     document.add_paragraph(
@@ -483,11 +531,14 @@ def build_experiment_tracking(document: Document, metadata: dict) -> None:
         f"training twice and confirming the alias moved automatically, with the old version left "
         f"unaliased for audit and rollback."
     )
-    add_screenshot_or_placeholder(
-        document, "03_mlflow_runs_list.png", "MLflow experiment runs list"
-    )
-    add_screenshot_or_placeholder(
-        document, "04_mlflow_run_detail.png", "MLflow run detail and registered model"
+    add_figure_grid(
+        document,
+        [
+            (SCREENSHOTS_DIR / "03_mlflow_runs_list.png", "MLflow experiment runs list"),
+            (SCREENSHOTS_DIR / "04_mlflow_run_detail.png", "MLflow run detail, registered model"),
+        ],
+        n_cols=2,
+        width_in=2.9,
     )
 
 
@@ -551,10 +602,15 @@ def build_cicd(document: Document) -> None:
         "and runs the same smoke-test script a developer runs locally), and, on main only once "
         "the smoke test passes, a push of the image to GitHub Container Registry."
     )
-    add_screenshot_or_placeholder(
-        document, "05_gha_all_green.png", "GitHub Actions run with all jobs green"
+    add_figure_grid(
+        document,
+        [
+            (SCREENSHOTS_DIR / "05_gha_all_green.png", "GitHub Actions, all jobs green"),
+            (SCREENSHOTS_DIR / "06_pytest_coverage.png", "pytest coverage summary"),
+        ],
+        n_cols=2,
+        width_in=2.9,
     )
-    add_screenshot_or_placeholder(document, "06_pytest_coverage.png", "pytest coverage summary")
 
 
 def build_containerisation(document: Document) -> None:
@@ -574,14 +630,15 @@ def build_containerisation(document: Document) -> None:
         "bad prediction. Request logs are structured JSON and deliberately never include raw "
         "patient feature values."
     )
-    add_screenshot_or_placeholder(
-        document, "07_docker_smoke.png", "Docker build and container smoke test"
-    )
-    add_screenshot_or_placeholder(
-        document, "08_docker_inspect.png", "Non-root user and healthy container"
-    )
-    add_screenshot_or_placeholder(
-        document, "11_swagger_docs.png", "Swagger / OpenAPI documentation"
+    add_figure_grid(
+        document,
+        [
+            (SCREENSHOTS_DIR / "07_docker_smoke.png", "Docker build + container smoke test"),
+            (SCREENSHOTS_DIR / "08_docker_inspect.png", "Non-root user, healthy container"),
+            (SCREENSHOTS_DIR / "11_swagger_docs.png", "Swagger / OpenAPI documentation"),
+        ],
+        n_cols=3,
+        width_in=1.9,
     )
 
 
@@ -626,9 +683,14 @@ def build_monitoring(document: Document) -> None:
         'real HTTP APIs, not just "the containers are up": the Prometheus target reports '
         "healthy, and a live query returns real prediction counts after a load test."
     )
-    add_screenshot_or_placeholder(document, "12_prometheus_targets.png", "Prometheus targets page")
-    add_screenshot_or_placeholder(
-        document, "13_grafana_dashboard.png", "Grafana dashboard with live data"
+    add_figure_grid(
+        document,
+        [
+            (SCREENSHOTS_DIR / "12_prometheus_targets.png", "Prometheus targets page"),
+            (SCREENSHOTS_DIR / "13_grafana_dashboard.png", "Grafana dashboard, live data"),
+        ],
+        n_cols=2,
+        width_in=2.9,
     )
 
 
