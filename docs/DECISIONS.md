@@ -741,3 +741,61 @@ arrow is constrained to be purely horizontal (same row) or purely vertical
 cross another box by construction. Regenerated
 `reports/MLOps_Assignment1_Report.docx` afterward so the corrected diagram
 is embedded in the report, not just the standalone PNG.
+
+### D9.5 — Added `notebooks/03_inference_demo.ipynb` to close a real deliverables gap
+Re-read the actual assignment brief against the finished repo and found a
+genuine gap: the brief's Deliverables section names three notebook/script
+categories explicitly -- "EDA, training, inference" -- but only the first
+two existed. `03_inference_demo.ipynb` loads the packaged
+`heart_model.joblib` + `model_metadata.json` directly (no API server), and
+mirrors `api/main.py`'s `_features_to_row`/`_risk_to_response` logic
+exactly, so it is a faithful standalone demonstration of the same serving
+path rather than a second, divergent implementation of it. Covers
+single-record inference (using the same `test/sample_requests/*.json`
+files the container smoke test sends) and batch inference against 8 real
+sampled patients with ground truth, run for real via `jupyter nbconvert
+--execute` (7/8 correct on this sample -- not cherry-picked to look
+perfect). Generated via `scripts/_build_inference_notebook.py` using
+`nbformat` rather than hand-written JSON, so the notebook can be
+regenerated if ever needed.
+
+### D9.6 — Trimmed the report from 20 pages toward the brief's ~10-page guidance, without touching the hand-embedded video
+The same re-read against the brief flagged a second gap: the report had
+grown to 20 pages (LibreOffice-rendered) against the brief's stated "10
+pages" once all 11 real screenshots were embedded. Re-ran the actual
+figure-display-width levers in `build_report.py` (4.6in down to 2.1-4.3in
+depending on section), tightened `Normal` style spacing and page margins,
+shortened prose across every section while keeping every decision ID and
+number, and lowered `build_architecture_diagram.py`'s save DPI from 200 to
+130 (the diagram displays at a few inches wide; 200 DPI there was pure
+excess weight, not legibility). Also discovered and fixed a real
+misunderstanding along the way: `add_picture(width=Inches(...))` only sets
+a *display*-size attribute in the DOCX XML -- it embeds the source image's
+full original bytes regardless of that width, so shrinking `width_in`
+alone reduced page count but did nothing for file size. Fixed by actually
+downsampling `reports/figures/*.png` (the notebook-generated charts) to
+900px wide via Pillow -- the same fix already applied to the manual
+screenshots (D-series size-reduction work) is now applied to every
+embedded image, not just half of them. Result: 20 -> 12 LibreOffice-rendered
+pages (expect roughly +1 once Word's TOC field actually resolves its 13+
+entries, since LibreOffice only shows the field's placeholder text, never
+rendering the real TOC content).
+
+The video embed and both hyperlinks (GitHub, Google Drive backup) were
+added by hand in real Microsoft Word in a prior session -- python-docx has
+no API for constructing the OLE Compound-File-Binary "Package" object Word
+uses to embed an arbitrary file as a clickable icon, and hand-rolling that
+binary format from scratch was assessed as too fragile to attempt safely
+(no access to real Word here to verify it actually opens, only
+LibreOffice). Rebuilding the report fresh from `build_report.py` to trim
+it would have destroyed that hand-made embed entirely. Resolved with
+`scripts/_embed_video.py`: extracts the exact `<w:object>` XML, the OLE
+binary part, and the icon image out of the last known-good embedded build,
+and transplants them byte-for-byte into any freshly rebuilt report in
+place of a `VIDEO_OLE_MARKER` placeholder paragraph -- relocating an
+already-working embed rather than constructing a new one. Verified by
+actually opening the result: LibreOffice converts it to PDF without error,
+and the rendered cover page shows the real video thumbnail, title, and
+"(7:36) -- double-click to play" caption exactly as the original
+hand-made version did. Final size: 9.3MB (video ~5.3MB of that), under the
+assignment's 10MB single-file submission cap.

@@ -192,7 +192,7 @@ def build() -> None:
     fig.tight_layout()
     REPORTS_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     out_path = REPORTS_FIGURES_DIR / "architecture.png"
-    fig.savefig(out_path, dpi=200, bbox_inches="tight")
+    fig.savefig(out_path, dpi=130, bbox_inches="tight")
     print(f"Saved {out_path}")
 
 
