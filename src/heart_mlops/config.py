@@ -14,7 +14,7 @@ REPORTS_FIGURES_DIR = PROJECT_ROOT / "reports" / "figures"
 SEED = 42
 
 # Operating threshold is tuned (Phase 3) to meet at least this recall on the
-# positive (disease) class, confirmed with the project owner (docs/DECISIONS.md D0.4).
+# positive (disease) class (docs/DECISIONS.md D0.4).
 RECALL_TARGET = 0.95
 
 # The 14 standard UCI Heart Disease columns, in file order.
@@ -51,10 +51,10 @@ RAW_FILE_SHA256 = {
 }
 
 # --- Modelling feature lists (Phase 3) -------------------------------------
-# Confirmed with the project owner (docs/DECISIONS.md D2.5): `site` is
-# excluded as a model feature (grouping-only, for leave-one-site-out and
-# per-site reporting); `ca`, `thal`, `slope` are kept despite being sparse
-# outside Cleveland, with missing-indicator / "missing" one-hot handling.
+# See docs/DECISIONS.md D2.5: `site` is excluded as a model feature
+# (grouping-only, for leave-one-site-out and per-site reporting); `ca`,
+# `thal`, `slope` are kept despite being sparse outside Cleveland, with
+# missing-indicator / "missing" one-hot handling.
 NUMERIC_FEATURES = ["age", "trestbps", "chol", "thalach", "oldpeak"]
 CATEGORICAL_FEATURES = ["sex", "cp", "fbs", "restecg", "exang", "slope", "ca", "thal"]
 MODEL_FEATURE_COLUMNS = NUMERIC_FEATURES + CATEGORICAL_FEATURES

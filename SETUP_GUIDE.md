@@ -239,6 +239,10 @@ make compose-up      # starts all three
 make compose-down     # stops them
 ```
 
+The CI pipeline also publishes this same image to GitHub Container
+Registry automatically on every push to the main branch, once the smoke
+test passes — nothing to run locally for that.
+
 ## 12. Deploy to a local Kubernetes cluster
 
 ```bash

@@ -62,6 +62,11 @@ make docker-smoke     # builds + runs + waits for health + checks every
 No `sudo` is needed for Docker in the lab (Docker Engine runs without it
 per the lab's own setup).
 
+CI (`.github/workflows/ci.yml`) also pushes this same image to GitHub
+Container Registry on every push to `main`, tagged by git SHA and
+`latest` — nothing to do here for that, it happens automatically on
+GitHub's own runners once the smoke test passes.
+
 ## 5. Kubernetes (Minikube)
 
 ```bash

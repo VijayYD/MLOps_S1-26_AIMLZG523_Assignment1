@@ -155,6 +155,9 @@ jobs:
     # download never blocks the container smoke test.
     needs: [test]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
 
@@ -169,6 +172,33 @@ jobs:
         with:
           name: docker-smoke-log
           path: screenshots/logs/run_container_smoke_*.log
-    # Pushing the built image to GHCR is intentionally not wired up here --
-    # the brief gates that behind asking first (see the project owner
-    # before adding it).
+
+      # Only push to GHCR for real commits on main (not every PR run), and
+      # only once the smoke test above has already passed for this exact
+      # image. GHCR image paths must be lowercase, so the owner is
+      # lower-cased explicitly rather than trusting github.repository_owner's
+      # casing.
+      - name: Compute GHCR image name
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          owner_lower="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          echo "GHCR_IMAGE=ghcr.io/${owner_lower}/heart-mlops-api" >> "$GITHUB_ENV"
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          GIT_SHA="$(git rev-parse HEAD)"
+          IMAGE_NAME="${GHCR_IMAGE}" IMAGE_TAG="${GIT_SHA}" bash scripts/build_image.sh
+          docker tag "${GHCR_IMAGE}:${GIT_SHA}" "${GHCR_IMAGE}:latest"
+          docker push "${GHCR_IMAGE}:${GIT_SHA}"
+          docker push "${GHCR_IMAGE}:latest"

@@ -234,8 +234,11 @@ artifacts), and `docker` (builds the image from the repo's committed model
 artifact and runs the exact same `scripts/run_container_smoke.sh` a
 developer runs locally — gated on `test` rather than `train`, so a slow or
 flaky UCI download never blocks the container check; `docs/DECISIONS.md`
-D7.8). Pushing the built image to GHCR is not wired up — gated on asking
-first, per the brief.
+D7.8). On a real push to `main` (not on pull requests), the `docker` job
+also pushes the built, smoke-tested image to GitHub Container Registry
+as `ghcr.io/<owner>/heart-mlops-api:<git-sha>` and `:latest`, using the
+workflow's own `GITHUB_TOKEN` — no extra secret to configure
+(`docs/DECISIONS.md` D7.9).
 
 ## Running this at the BITS Prayogshala lab
 

@@ -30,7 +30,10 @@ Generated as code by [`reports/build_architecture_diagram.py`](../reports/build_
    build + container smoke test on every push/PR.
    `docker/Dockerfile` packages the FastAPI app (`src/heart_mlops/api/`)
    with the committed model artifact into a non-root,
-   `python:3.12.9-slim`-based image.
+   `python:3.12.9-slim`-based image. On a real push to `main`, once the
+   smoke test passes, the same image is also pushed to GitHub Container
+   Registry (`ghcr.io/<owner>/heart-mlops-api`, tagged by git SHA and
+   `latest`) using the workflow's own `GITHUB_TOKEN` (D7.9).
 5. **Kubernetes serving** (Phase 7) — `k8s/` (Kustomize: `base/` +
    `monitoring/` + `overlays/minikube/`) deploys 2 API pod replicas
    (HPA 2-5 on CPU) behind both an Ingress (`heart-api.local`) and a

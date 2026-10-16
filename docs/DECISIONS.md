@@ -470,8 +470,32 @@ whatever `models/heart_model.joblib` is already committed in the repo
 (the thing a fresh `git clone` actually gets), not from `train`'s
 freshly-generated-but-never-committed artifact, so a slow or flaky UCI
 download in `train` can never block the container smoke test. GHCR push
-is still not wired up -- gated behind confirming scope first, per the
-brief, same as D7.1/D7.2.
+was deferred at this point, pending confirming scope first, same as
+D7.1/D7.2.
+
+### D7.9 — CI pushes the smoke-tested image to GHCR, main-branch pushes only
+Added two steps to the end of the `docker` job: log in to `ghcr.io` with
+`docker/login-action`, then build and push `ghcr.io/<owner>/heart-mlops-api`
+tagged both `:<git-sha>` and `:latest`. Gated on
+`github.event_name == 'push' && github.ref == 'refs/heads/main'` so pull
+request runs never attempt a push (a fork's PR run has no write access to
+packages, and a throwaway demo branch like D9.3's `ci-fail-demo` should
+never publish an image anyway). Placed *after* the smoke-test step rather
+than as a parallel build, so only an image that has already passed
+`scripts/run_container_smoke.sh` is ever published -- a failed smoke test
+fails the job before the push steps run. Uses the workflow's own
+`GITHUB_TOKEN` (scoped via the job-level `permissions: packages: write`)
+rather than a separately managed PAT, since `GITHUB_TOKEN` already has
+everything GHCR push needs and rotates automatically with each run.
+Re-tags and re-pushes the already-built image rather than calling
+`docker/build-push-action`, so the exact same `scripts/build_image.sh`
+path (and its OCI labels, D5.1-adjacent) is used for both the local smoke
+test and the published image -- one build script, not two slightly
+different build paths that could drift apart.
+**Note:** a package pushed to GHCR from a personal repository is private
+by default; visit the package's own settings on GitHub
+(`github.com/<owner>?tab=packages`) to make it public if it needs to be
+pullable without authentication.
 
 ## Phase 8 — Lab-parity verification
 
