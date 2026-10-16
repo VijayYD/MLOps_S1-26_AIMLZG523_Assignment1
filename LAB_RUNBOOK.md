@@ -114,8 +114,10 @@ make load-test    # small concurrent traffic generator, so Grafana has real data
 ### Monitoring
 
 ```bash
-${KUBECTL:-kubectl} -n heart-mlops port-forward svc/prometheus 9090:9090 &
-${KUBECTL:-kubectl} -n heart-mlops port-forward svc/grafana 3000:3000 &
+source scripts/_k8s_lib.sh    # resolves kubectl, falling back to
+                               # "minikube kubectl --" if it's not installed
+${KUBECTL} -n heart-mlops port-forward svc/prometheus 9090:9090 &
+${KUBECTL} -n heart-mlops port-forward svc/grafana 3000:3000 &
 ```
 
 Then open `http://127.0.0.1:9090/targets` (Prometheus) and
@@ -173,7 +175,10 @@ setup differs subtly from what `check_env.sh` reports.
   re-run `minikube addons enable ingress` if a pod is stuck pending.
 - **`kubectl: command not found`**: every script here (`k8s_deploy.sh`,
   `k8s_verify.sh`, `k8s_teardown.sh`) auto-falls-back to
-  `minikube kubectl --` via `scripts/_k8s_lib.sh` — nothing to do.
+  `minikube kubectl --` via `scripts/_k8s_lib.sh` — nothing to do. For a
+  standalone command typed directly in a terminal (e.g. the monitoring
+  port-forwards above), `source scripts/_k8s_lib.sh` first and use
+  `${KUBECTL}` instead of typing `kubectl` directly.
 - **Port already in use** (8000/5001/9090/3000), e.g. `docker compose`
   failing with `address already in use`: `scripts/check_env.sh` reports
   which ports are busy before you start; check `docker ps -a` for a

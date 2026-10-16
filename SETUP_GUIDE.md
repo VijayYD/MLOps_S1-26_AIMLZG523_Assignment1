@@ -296,11 +296,17 @@ make load-test
 ```
 
 Sends a short burst of real requests so the monitoring dashboards have
-something to show. Then, in separate terminals:
+something to show. Then, in separate terminals (each one needs the
+`source` line, since it's what resolves `kubectl` even when it isn't
+installed — falling back to `minikube kubectl --` automatically):
 
 ```bash
-${KUBECTL:-kubectl} -n heart-mlops port-forward svc/prometheus 9090:9090
-${KUBECTL:-kubectl} -n heart-mlops port-forward svc/grafana 3000:3000
+source scripts/_k8s_lib.sh
+${KUBECTL} -n heart-mlops port-forward svc/prometheus 9090:9090
+```
+```bash
+source scripts/_k8s_lib.sh
+${KUBECTL} -n heart-mlops port-forward svc/grafana 3000:3000
 ```
 
 Open `http://127.0.0.1:9090/targets` (Prometheus should show the API
@@ -397,7 +403,10 @@ missing shows as a clearly labelled placeholder instead.
   ingress-nginx` — if a pod is stuck pending, re-run `minikube addons
   enable ingress`.
 - **`kubectl: command not found`**: every script here falls back to
-  `minikube kubectl --` automatically; nothing to do.
+  `minikube kubectl --` automatically; nothing to do. For a standalone
+  command typed directly in a terminal (e.g. the monitoring
+  port-forwards above), `source scripts/_k8s_lib.sh` first and use
+  `${KUBECTL}` instead of typing `kubectl` directly.
 - **A restricted network blocks the UCI dataset or Docker Hub**: set the
   usual `HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY` environment variables
   before running any command — nothing here hard-codes a direct

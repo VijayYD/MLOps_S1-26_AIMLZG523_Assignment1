@@ -546,6 +546,22 @@ Ingress's 80/443). Corrected the misleading comment in
 `k8s/base/service-lb.yaml` and the same stale claim in `README.md` and
 `LAB_RUNBOOK.md` to match.
 
+### D7.12 — `${KUBECTL:-kubectl}` in the standalone monitoring port-forward commands never actually worked without `kubectl` installed
+Hit this directly in the lab: `${KUBECTL:-kubectl} -n heart-mlops
+port-forward svc/prometheus 9090:9090`, copy-pasted straight out of
+`SETUP_GUIDE.md`/`LAB_RUNBOOK.md`, failed with `kubectl: command not
+found`. The `${KUBECTL:-kubectl}` fallback syntax only resolves to
+something real when the `KUBECTL` variable has actually been set --
+which happens inside `k8s_deploy.sh`/`k8s_verify.sh`/`k8s_teardown.sh`
+because they `source scripts/_k8s_lib.sh`, but never happens for these
+two commands, which were written as bare one-off terminal commands, not
+run through any script. The placeholder syntax looked like a working
+fallback but was dead code outside the three scripts that already
+sourced the lib. Fixed both docs to `source scripts/_k8s_lib.sh` first
+(which sets `KUBECTL` to `minikube kubectl --` when `kubectl` isn't on
+PATH) before using `${KUBECTL}`, and added this to both troubleshooting
+sections' existing "`kubectl: command not found`" entry.
+
 ## Phase 8 — Lab-parity verification
 
 ### D8.1 — `git archive HEAD`, not a file copy, for the lab-parity container
