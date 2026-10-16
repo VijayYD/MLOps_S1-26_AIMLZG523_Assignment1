@@ -497,6 +497,26 @@ by default; visit the package's own settings on GitHub
 (`github.com/<owner>?tab=packages`) to make it public if it needs to be
 pullable without authentication.
 
+### D7.10 — docker-compose host ports made overridable (`API_PORT`/`PROMETHEUS_PORT`/`GRAFANA_PORT`)
+Hit this directly running `make compose-up` on a shared machine:
+`Error response from daemon: ... failed to bind host port for
+0.0.0.0:8000:...: address already in use`. `scripts/run_container_smoke.sh`
+already supported a `PORT` override for the standalone smoke-test
+container, but `docker/docker-compose.yml` hard-coded `8000:8000`,
+`9090:9090` and `3000:3000` on the host side with no way to override
+any of them -- the one command in this project without a port escape
+hatch, on exactly the kind of shared machine where a port collision is
+expected (another student's leftover container, or a previous run of
+this project's own stack never torn down). Changed all three services'
+host-side port mappings to `"${API_PORT:-8000}:8000"` (and the
+equivalent for Prometheus/Grafana) -- the container-internal ports are
+unchanged, so nothing else in the stack (the Grafana datasource pointing
+at `prometheus:9090` internally, the Dockerfile's internal `API_PORT`
+env var) needed to change. Verified with `docker compose -f
+docker/docker-compose.yml config` that the override substitutes
+correctly and the unset-case default (`8000`) is preserved exactly as
+before.
+
 ## Phase 8 — Lab-parity verification
 
 ### D8.1 — `git archive HEAD`, not a file copy, for the lab-parity container

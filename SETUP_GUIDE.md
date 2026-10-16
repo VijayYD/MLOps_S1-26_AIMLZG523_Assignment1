@@ -381,10 +381,15 @@ missing shows as a clearly labelled placeholder instead.
   | `lab-parity` | `bash scripts/lab_parity_check.sh` |
   | `report` | `.venv/bin/python reports/build_report.py` |
 
-- **A port is already in use** (`8000`, `5001`, `9090`, `3000`, `8080`):
-  find and stop whatever else is using it, or override the port for the
-  one command that needs it — for example `PORT=8001 bash
-  scripts/run_container_smoke.sh`.
+- **A port is already in use** (`8000`, `5001`, `9090`, `3000`, `8080`),
+  e.g. `docker compose` failing with `address already in use`: check
+  `docker ps -a` first for a leftover container from an earlier run that
+  was never stopped (`docker rm -f <name>`, or `docker compose -f
+  docker/docker-compose.yml down`). Otherwise, override the port instead
+  of trying to free it — for example `PORT=8001 bash
+  scripts/run_container_smoke.sh` for the standalone smoke test, or
+  `API_PORT=8001 PROMETHEUS_PORT=9091 GRAFANA_PORT=3001 make compose-up`
+  for the docker-compose stack.
 - **Minikube won't start, or runs out of resources**: lower the request,
   e.g. `MINIKUBE_CPUS=1 MINIKUBE_MEMORY=2048 make k8s-deploy`. If a
   previous cluster is in a broken state, `minikube delete` and try again.

@@ -165,11 +165,16 @@ setup differs subtly from what `check_env.sh` reports.
 - **`kubectl: command not found`**: every script here (`k8s_deploy.sh`,
   `k8s_verify.sh`, `k8s_teardown.sh`) auto-falls-back to
   `minikube kubectl --` via `scripts/_k8s_lib.sh` — nothing to do.
-- **Port already in use** (8000/5001/9090/3000): `scripts/check_env.sh`
-  reports which ports are busy before you start; find and stop whatever
-  else is using them (`lsof -i :<port>` on macOS/Linux), or override the
-  port for the one command that needs it (e.g. `PORT=8001
-  bash scripts/run_container_smoke.sh`).
+- **Port already in use** (8000/5001/9090/3000), e.g. `docker compose`
+  failing with `address already in use`: `scripts/check_env.sh` reports
+  which ports are busy before you start; check `docker ps -a` for a
+  leftover container from an earlier run that was never torn down first
+  (`docker rm -f <name>`, or `docker compose -f docker/docker-compose.yml
+  down` if it was a previous compose stack). If the port is genuinely
+  held by something else, override it instead of trying to free it:
+  `PORT=8001 bash scripts/run_container_smoke.sh` for the standalone
+  smoke test, or `API_PORT=8001 PROMETHEUS_PORT=9091
+  GRAFANA_PORT=3001 make compose-up` for the docker-compose stack.
 - **Corporate proxy / restricted network blocks UCI or Docker Hub**: set
   the usual `HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY` environment variables
   before running any command here — nothing in this repo hard-codes a
