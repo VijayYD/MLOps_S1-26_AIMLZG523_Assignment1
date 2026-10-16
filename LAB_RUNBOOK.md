@@ -132,6 +132,29 @@ setup differs subtly from what `check_env.sh` reports.
 
 ## Troubleshooting
 
+- **`make: command not found`**: `make` is optional everywhere in this
+  runbook -- every target has a plain bash equivalent, no `sudo` needed
+  either way:
+
+  | `make <target>` | Equivalent |
+  |---|---|
+  | `check-env` | `bash scripts/check_env.sh` |
+  | `venv` | `bash scripts/setup_venv.sh` |
+  | `lint` | `.venv/bin/ruff check . && .venv/bin/ruff format --check .` |
+  | `data` | `.venv/bin/python -m heart_mlops.data.download && .venv/bin/python -m heart_mlops.data.clean` |
+  | `test` | `.venv/bin/pytest` |
+  | `train` | `bash scripts/train.sh` |
+  | `mlflow-ui` | `bash scripts/mlflow_ui.sh` |
+  | `build-image` | `bash scripts/build_image.sh` |
+  | `docker-smoke` | `bash scripts/run_container_smoke.sh` |
+  | `compose-up` / `compose-down` | `docker compose -f docker/docker-compose.yml up -d --build` / `... down` |
+  | `k8s-deploy` | `bash scripts/k8s_deploy.sh` |
+  | `k8s-verify` | `bash scripts/k8s_verify.sh` |
+  | `k8s-teardown` | `bash scripts/k8s_teardown.sh` |
+  | `load-test` | `bash scripts/load_test.sh` |
+  | `lab-parity` | `bash scripts/lab_parity_check.sh` |
+  | `report` | `.venv/bin/python reports/build_report.py` |
+
 - **minikube won't start / not enough resources**: lower the resource
   request, e.g. `MINIKUBE_CPUS=1 MINIKUBE_MEMORY=2048 make k8s-deploy`. If
   a previous `minikube` profile is in a bad state, `minikube delete` and
