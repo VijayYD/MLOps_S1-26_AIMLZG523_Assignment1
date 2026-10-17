@@ -1,0 +1,29 @@
+=== kubectl get pods,svc,ingress,hpa -n heart-mlops ===
+NAME                             READY   STATUS    RESTARTS       AGE     IP            NODE       NOMINATED NODE   READINESS GATES
+pod/grafana-b8d7d8854-nlsmb      1/1     Running   0              157m    10.244.0.11   minikube   <none>           <none>
+pod/heart-api-76454b4655-pkdgq   1/1     Running   0              146m    10.244.0.14   minikube   <none>           <none>
+pod/heart-api-76454b4655-xvlf5   1/1     Running   1 (147m ago)   3h42m   10.244.0.10   minikube   <none>           <none>
+pod/prometheus-d5d7c9c4b-wngc2   1/1     Running   0              3h42m   10.244.0.8    minikube   <none>           <none>
+
+NAME                   TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE     SELECTOR
+service/grafana        ClusterIP      10.101.20.145    <none>        3000/TCP         3h42m   app=grafana
+service/heart-api      ClusterIP      10.102.213.128   <none>        80/TCP           3h42m   app=heart-api
+service/heart-api-lb   LoadBalancer   10.96.118.194    <pending>     8000:32039/TCP   3h42m   app=heart-api
+service/prometheus     ClusterIP      10.111.34.118    <none>        9090/TCP         3h42m   app=prometheus
+
+NAME                                          CLASS   HOSTS             ADDRESS        PORTS   AGE
+ingress.networking.k8s.io/heart-api-ingress   nginx   heart-api.local   192.168.49.2   80      3h42m
+
+NAME                                                REFERENCE              TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+horizontalpodautoscaler.autoscaling/heart-api-hpa   Deployment/heart-api   cpu: 4%/70%   2         5         2          3h42m
+
+heart-api-lb has no external IP yet ('minikube tunnel' not
+running) -- port-forwarding it to a local port instead.
+
+=== /health via Ingress (Host: heart-api.local, http://192.168.49.2) ===
+{"status":"ok"}
+=== /predict via Ingress ===
+{"prediction":1,"label":"Disease","confidence":0.33357277521438994,"risk_probability":0.33357277521438994,"threshold":0.2418610708312065,"model_version":"2","request_id":"f81e7195-acb4-45d4-a4b1-e2ede6f6d193"}
+
+=== /health via LoadBalancer (http://127.0.0.1:18089) ===
+curl: (52) Empty reply from server

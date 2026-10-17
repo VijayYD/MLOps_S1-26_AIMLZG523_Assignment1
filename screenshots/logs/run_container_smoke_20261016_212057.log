@@ -1,0 +1,103 @@
+=== Building image ===
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.04kB done
+#1 WARN: FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 7)
+#1 WARN: FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 14)
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12.9-slim
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 267B 0.1s done
+#3 DONE 0.1s
+
+#4 [builder 1/4] FROM docker.io/library/python:3.12.9-slim
+#4 CACHED
+
+#5 [internal] load build context
+#5 transferring context: 9.70kB 0.1s done
+#5 DONE 0.1s
+
+#6 [builder 2/4] WORKDIR /build
+#6 CACHED
+
+#7 [builder 3/4] COPY requirements.txt .
+#7 CACHED
+
+#8 [builder 4/4] RUN pip install --no-cache-dir --user -r requirements.txt
+#8 CACHED
+
+#9 [runtime 2/7] RUN useradd --create-home --uid 1000 --shell /usr/sbin/nologin appuser
+#9 DONE 0.6s
+
+#10 [runtime 3/7] WORKDIR /app
+#10 DONE 0.0s
+
+#11 [runtime 4/7] COPY --from=builder /root/.local /home/appuser/.local
+#11 DONE 7.3s
+
+#12 [runtime 5/7] COPY src/ src/
+#12 DONE 0.1s
+
+#13 [runtime 6/7] COPY models/heart_model.joblib models/model_metadata.json models/MODEL_CARD.md models/
+#13 DONE 0.0s
+
+#14 [runtime 7/7] RUN chown -R appuser:appuser /app
+#14 DONE 0.3s
+
+#15 exporting to image
+#15 exporting layers
+#15 exporting layers 18.5s done
+#15 writing image sha256:64877cfbf757eb70a229d85428ad6ed2933461cad3fdf91c60669648ceb7b040 done
+#15 naming to docker.io/library/heart-mlops-api:smoke done
+#15 DONE 18.5s
+Built heart-mlops-api:smoke (git sha a5242b4ec227093587d277061618111d856ec934)
+=== Starting container ===
+04500b9e73a85993601142912a70dfdb3ffdcd969d3c24dd65b8bff847004414
+docker: Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint heart-api-smoke (0b9217af05ff712ce7d418d365bff22b91f28bbbba203c9415cfe7b32e66ca38): failed to bind host port for 0.0.0.0:8000:172.17.0.2:8000/tcp: address already in use
+
+Run 'docker run --help' for more information
+=== Waiting for /health ===
+Healthy after 1s
+=== /ready ===
+{"status":"ready"}
+=== /model-info ===
+{"model_name":"logreg","model_version":"2","threshold":0.2418610708312065,"feature_schema":{"numeric":["age","trestbps","chol","thalach","oldpeak"],"categorical":["sex","cp","fbs","restecg","exang","slope","ca","thal"]},"metrics":{"accuracy":0.8043478260869565,"precision":0.7538461538461538,"recall":0.9607843137254902,"f1":0.8448275862068966,"roc_auc":0.9038737446197991,"pr_auc":0.9147582340917307,"brier":0.1200347122517763,"threshold":0.2418610708312065},"sklearn_version":"1.5.2","git_sha":"fcd0044439a070b3f210ac5b07b29d8a0b3b9ba0","timestamp":"2026-10-16T11:44:37.544396+00:00"}
+=== Sample requests ===
+--- invalid_missing_field.json (expect HTTP 422) ---
+{"detail":[{"type":"missing","loc":["body","age"],"msg":"Field required","input":{"sex":1,"cp":1,"trestbps":145,"chol":233,"fbs":1,"restecg":2,"thalach":150,"exang":0,"oldpeak":2.3,"slope":3,"ca":0,"thal":6}}]}
+HTTP 422
+--- invalid_out_of_range.json (expect HTTP 422) ---
+{"detail":[{"type":"literal_error","loc":["body","sex"],"msg":"Input should be 0 or 1","input":2,"ctx":{"expected":"0 or 1"}}]}
+HTTP 422
+--- valid_high_risk.json (expect HTTP 200) ---
+{"prediction":1,"label":"Disease","confidence":0.33357277521438994,"risk_probability":0.33357277521438994,"threshold":0.2418610708312065,"model_version":"2","request_id":"0cb6fadc-7bd3-4366-b703-afe24e342535"}
+HTTP 200
+--- valid_low_risk.json (expect HTTP 200) ---
+{"prediction":0,"label":"No disease","confidence":0.9067785110940073,"risk_probability":0.0932214889059927,"threshold":0.2418610708312065,"model_version":"2","request_id":"1365cd22-910b-49bc-9c74-61afef9bdfa6"}
+HTTP 200
+=== /metrics (first 20 lines) ===
+# HELP python_gc_objects_collected_total Objects collected during gc
+# TYPE python_gc_objects_collected_total counter
+python_gc_objects_collected_total{generation="0"} 5010.0
+python_gc_objects_collected_total{generation="1"} 5083.0
+python_gc_objects_collected_total{generation="2"} 375.0
+# HELP python_gc_objects_uncollectable_total Uncollectable objects found during GC
+# TYPE python_gc_objects_uncollectable_total counter
+python_gc_objects_uncollectable_total{generation="0"} 0.0
+python_gc_objects_uncollectable_total{generation="1"} 0.0
+python_gc_objects_uncollectable_total{generation="2"} 0.0
+# HELP python_gc_collections_total Number of times this generation was collected
+# TYPE python_gc_collections_total counter
+python_gc_collections_total{generation="0"} 344.0
+python_gc_collections_total{generation="1"} 31.0
+python_gc_collections_total{generation="2"} 2.0
+# HELP python_info Python platform information
+# TYPE python_info gauge
+python_info{implementation="CPython",major="3",minor="12",patchlevel="9",version="3.12.9"} 1.0
+# HELP process_virtual_memory_bytes Virtual memory size in bytes.
+# TYPE process_virtual_memory_bytes gauge
+=== Container logs ===
